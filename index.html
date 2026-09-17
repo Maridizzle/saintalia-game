@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<!--
+  Saintalia -- root entry
+  Author: Maridizzle
+
+  GitHub Pages serves this repo from main at root, so it looks for /index.html.
+  The game lives in game/, so this redirects there and nothing has to move.
+
+  The meta refresh works with JavaScript disabled. The link is the fallback if
+  a browser ignores the refresh. The dark background stops a white flash on the
+  way into a very dark game.
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="refresh" content="0; url=game/">
+<link rel="canonical" href="game/">
+<title>Saintalia</title>
+<style>
+  html, body { height: 100%; margin: 0; background: #080510; }
+  body {
+    display: flex; align-items: center; justify-content: center;
+    font-family: Georgia, serif; color: #c9a84c;
+  }
+  a { color: #e8c96a; letter-spacing: 0.2em; text-transform: uppercase; font-size: 0.9rem; }
+</style>
+</head>
+<body>
+<p><a href="game/">Enter Saintalia</a></p>
+</body>
+</html>

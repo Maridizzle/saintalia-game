@@ -26,9 +26,9 @@ The vault and Maridizzle's decisions settled these. Recorded here so nobody reli
 
 6. **Mobile matters, and it comes right after the split.** Every scene and bridge built after Phase 2 is built mobile-first. Nothing gets retrofitted.
 
-## Still open
+7. **Root `index.html`. A redirect into `game/`.** Pages is live from `main` at root and 404'd on the bare URL because no `/index.html` existed. Root now carries a small redirect with a link fallback, so the bare URL lands on the game and nothing has to move out of `game/`.
 
-7. **Root `index.html`.** Pages will serve from `main` at root. Right now root has no `index.html`, so the Pages URL would 404 and the game would only be reachable at `/saintalia-v2.html`. Options: put the game at root, or put a redirect at root pointing into `game/`. (Blocks Phase 8.)
+## Still open
 
 8. **Trigger collisions in the 15 Questions.** The vault claims Q4-B and Q7-B for BOTH Self as Threat A and B, and Q6-B and Q8-B for BOTH Conditional Survival B and The Connection Itself. The code picked one owner each, which strands Conditional Survival B on Q3-B alone and Self as Threat A on Q9-A alone. Maridizzle to settle. Also unassigned in the vault: Q7-A.
 
