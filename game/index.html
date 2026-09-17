@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<!--
+  Saintalia -- shell
+  Author: Maridizzle
+
+  Markup only. All styles live in css/game.css. All behavior lives in js/.
+  Split verbatim from saintalia-v2.html (Phase 1). No behavior changes.
+
+  The screen-* class on <html> and <body> scopes the three sets of body rules
+  that used to be injected as separate <style> blocks. See css/game.css.
+-->
+<html lang="en" class="screen-lobby">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, minimum-scale=1.0, maximum-scale=5.0">
+<title>Saintalia — Where the Veil Breaks</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&family=Cinzel:wght@400;600&family=Crimson+Pro:ital,wght@0,400;0,500;1,400&family=Orbitron:wght@400;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/game.css">
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+</head>
+<body class="screen-lobby">
+
+<div class="lobby">
+  <p class="title-eyebrow">A Collaborative Horror Fantasy</p>
+  <h1 class="title-main">Saintalia</h1>
+  <p class="title-sub">Where the Veil Breaks</p>
+  <div class="divider"></div>
+
+  <!-- STEP 1: ROLE SELECTION -->
+  <div class="step active" id="step-role">
+    <p class="step-label">Step I of III — Choose Your Side</p>
+    <div class="role-cards">
+      <div class="role-card fantasy" id="card-fantasy" onclick="selectRole('fantasy')">
+        <span class="role-icon">🜏</span>
+        <div class="role-name">Saintalia</div>
+        <div class="role-desc">You dwell in the ancient realm. The veil is thinning from your side.</div>
+      </div>
+      <div class="role-card reality" id="card-reality" onclick="selectRole('reality')">
+        <span class="role-icon">◈</span>
+        <div class="role-name">The Waking World</div>
+        <div class="role-desc">You are the artist. Something is painting itself into your mural.</div>
+      </div>
+    </div>
+    <button class="btn-primary" id="btn-role-next" onclick="goToStep('step-connect')" disabled>
+      Cross the Threshold
+    </button>
+  </div>
+
+  <!-- STEP 2: CONNECTION -->
+  <div class="step" id="step-connect">
+    <p class="step-label">Step II of III — Find Each Other</p>
+
+    <div class="action-tabs">
+      <button class="action-tab active" id="tab-create" onclick="switchAction('create')">Open the Veil</button>
+      <button class="action-tab" id="tab-join" onclick="switchAction('join')">Step Through</button>
+    </div>
+
+    <!-- CREATE ROOM -->
+    <div class="code-panel active" id="panel-create">
+      <p class="lore-text">You are the first through. A code will be woven from the veil itself. Send it to the one waiting on the other side.</p>
+      <div class="status-area" id="create-status-area">
+        <div class="status-msg info">Initializing connection to the veil...</div>
+      </div>
+      <div class="code-display" id="code-display" style="display:none">
+        <span class="code-word" id="room-code-display">—</span>
+        <span class="code-hint">Send this to your companion. They must enter it exactly.</span>
+      </div>
+      <button class="btn-primary" id="btn-waiting" disabled>
+        Waiting for the Other
+        <span class="connection-dots"><span></span><span></span><span></span></span>
+      </button>
+    </div>
+
+    <!-- JOIN ROOM -->
+    <div class="code-panel" id="panel-join">
+      <p class="lore-text">Someone has already opened the veil. Enter the code they passed to you and step through.</p>
+      <div class="code-input-wrap">
+        <input class="code-input" id="join-code-input" placeholder="enter the veil-code..." maxlength="30" />
+      </div>
+      <div class="status-area" id="join-status-area" style="min-height:2rem"></div>
+      <button class="btn-primary" id="btn-join" onclick="joinRoom()">Step Through the Veil</button>
+    </div>
+
+    <button class="btn-secondary" onclick="goToStep('step-role')" style="margin-top:0.5rem">← Change Sides</button>
+  </div>
+
+  <!-- STEP 3: GROQ KEY + READY -->
+  <div class="step" id="step-ready">
+    <p class="step-label">Step III of III — Awaken the Narrator</p>
+
+    <div class="connected-badge">
+      <span class="connected-dot"></span>
+      Both sides of the veil are present
+    </div>
+
+    <div class="key-notice">
+      <p>The Narrator requires a Groq key to speak. This is free at console.groq.com — no credit card. Your key never leaves this browser.</p>
+      <input class="key-input" type="password" id="groq-key-input" placeholder="gsk_..." />
+      <div class="key-status" id="key-status"></div>
+    </div>
+
+    <button class="btn-primary" id="btn-begin-game" onclick="beginGame()">Begin the Story</button>
+    <button class="btn-secondary" onclick="skipGroq()">Continue without AI narration</button>
+  </div>
+</div>
+
+<!-- DEBUG PANEL -->
+<div class="debug-panel" id="debug">
+  <div>Role: <span id="dbg-role">—</span></div>
+  <div>Peer ID: <span id="dbg-peer">—</span></div>
+  <div>Room: <span id="dbg-room">—</span></div>
+  <div>State: <span id="dbg-state">idle</span></div>
+  <div>Connection: <span id="dbg-conn">—</span></div>
+</div>
+
+<!--
+  Load order matters. char-data defines CHAR_DATA, which character.js reads.
+  connection.js defines S and setScreen, which everything else reads.
+  narrator.js calls into game.js at runtime only, never at load.
+-->
+<script src="data/char-data.js"></script>
+<script src="js/connection.js"></script>
+<script src="js/character.js"></script>
+<script src="js/narrator.js"></script>
+<script src="js/game.js"></script>
+
+</body>
+</html>

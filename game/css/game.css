@@ -1,0 +1,1005 @@
+/* ============================================================
+   Saintalia -- stylesheet
+   Author: Maridizzle
+
+   Phase 1 split. Merged verbatim from the three <style> blocks in
+   saintalia-v2.html:
+     1. the head block            (lobby + global + themes)
+     2. buildCharScreen()'s block (character creation)
+     3. buildGameScreen()'s block (game screen)
+
+   Those three blocks used to override each other by document order, because
+   each was injected later than the last. In one stylesheet they collide, so
+   the conflicting rules are scoped by a screen class carried on <html> and
+   <body>: screen-lobby, screen-char, screen-game.
+
+   Only these selectors actually collided:
+     body, body::before, html/body height, *, .custom-row, :root
+   Everything else is disjoint by class name and moved unchanged.
+
+   Two things deliberately preserved rather than fixed, so the Phase 1
+   side-by-side comparison against saintalia-v2.html stays honest:
+     - the --bone circular reference on the game screen (see below)
+     - the duplicate .story-feed rule in the game screen section
+   Both are logged in PLAN.md Phase 2.
+============================================================ */
+
+
+/* ============================================================
+   1. TOKENS
+============================================================ */
+:root {
+  --ink: #0a0608;
+  --parchment: #f5efe0;
+  --parchment-dark: #e8ddc8;
+  --blood: #8b1a1a;
+  --blood-light: #c0392b;
+  --gold: #c9a84c;
+  --gold-light: #e8c96a;
+  --shadow-purple: #2d1b4e;
+  --deep-purple: #1a0e2e;
+  --mist: #7a9ea8;
+  --mist-light: #a8c4cc;
+  --bone: #d4c5a9;
+  --gold-rgb: 201,168,76;
+  --mist-rgb: 122,158,168;
+  --acc: #c9a84c; --acc-rgb: 201,168,76;
+  --other-acc: #7a9ea8; --other-acc-rgb: 122,158,168;
+}
+
+
+/* ============================================================
+   2. PER-PLAYER CONSOLE THEMES
+   (the body class survives the innerHTML swaps, so one class set at
+    role-select themes the lobby, char screen, and game)
+============================================================ */
+/* Artist / Waking World -- slate blue, parchment, cell-phone console */
+body.theme-artist {
+  --ink: #0e1622;
+  --parchment: #f3ecdc; --parchment-dark: #e3d8c0;
+  --gold: #6e93b8; --gold-light: #9fc0da; --gold-rgb: 110,147,184;
+  --mist: #6e93b8; --mist-light: #9fc0da; --mist-rgb: 110,147,184;
+  --deep-purple: #101b29; --shadow-purple: #1c2a3a;
+  --acc: #9fc0da; --acc-rgb: 110,147,184;
+  --other-acc: #ff7ddd; --other-acc-rgb: 255,62,200;
+  background: #0e1622;
+}
+body.theme-artist::before {
+  background:
+    radial-gradient(ellipse at 25% 30%, rgba(110,147,184,0.16) 0%, transparent 60%),
+    radial-gradient(ellipse at 75% 80%, rgba(28,42,58,0.5) 0%, transparent 60%);
+}
+/* Saintalia -- fuchsia / deep purple holographic console */
+body.theme-fantasy {
+  --ink: #0d0318;
+  --parchment: #f4e9ff; --parchment-dark: #e3d3f5;
+  --gold: #ff3ec8; --gold-light: #ff7ddd; --gold-rgb: 255,62,200;
+  --mist: #9d4dff; --mist-light: #c39bff; --mist-rgb: 157,77,255;
+  --deep-purple: #160627; --shadow-purple: #3c1166;
+  --acc: #ff7ddd; --acc-rgb: 255,62,200;
+  --other-acc: #9fc0da; --other-acc-rgb: 110,147,184;
+  background: #0d0318;
+}
+body.theme-fantasy::before {
+  background:
+    repeating-linear-gradient(0deg, transparent 0 3px, rgba(255,62,200,0.025) 3px 4px),
+    radial-gradient(ellipse at 30% 40%, rgba(60,17,102,0.5) 0%, transparent 60%),
+    radial-gradient(ellipse at 70% 80%, rgba(255,62,200,0.10) 0%, transparent 55%);
+  animation: holo-flicker 7s ease-in-out infinite;
+}
+@keyframes holo-flicker { 0%,100%{opacity:1} 48%{opacity:1} 50%{opacity:0.93} 52%{opacity:1} 73%{opacity:0.97} 74%{opacity:1} }
+
+/* ---- themed overrides for the char and game screens ---- */
+/* fantasy console: holographic chrome */
+body.theme-fantasy .g-logo,
+body.theme-fantasy .cc-ttl { font-family: 'Orbitron', sans-serif; }
+body.theme-fantasy .holo-label,
+body.theme-fantasy .shared-feed-label,
+body.theme-fantasy .private-feed-label,
+body.theme-fantasy .veil-label,
+body.theme-fantasy .choice-label { font-family: 'Orbitron', sans-serif; }
+body.theme-fantasy .side.your-side {
+  background: rgba(40,10,60,0.3);
+  backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px);
+  box-shadow: inset 0 0 30px rgba(255,62,200,0.05), 0 0 14px rgba(255,62,200,0.1);
+}
+body.theme-fantasy .holo-msg.incoming { color: rgba(110,147,184,0.95); }
+body.theme-fantasy .note-bubble-r { border-left-color: rgba(110,147,184,0.5); }
+/* artist console: phone on parchment */
+body.theme-artist .side.your-side {
+  border: 2px solid #2c3a4a; border-radius: 20px;
+  background: #18242f; overflow: hidden; margin: 0.4rem;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+}
+body.theme-artist .side.your-side .your-banner {
+  background: #1c2a3a; color: #9fc0da; border-bottom: none;
+  font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, sans-serif;
+  letter-spacing: 0.12em;
+}
+body.theme-artist .phone-wrap { border-radius: 0; }
+body.theme-artist .note-bubble-f { border-left-color: rgba(255,62,200,0.5); }
+/* the other player's panel is a muted window into their world */
+body.theme-artist .companion-panel { box-shadow: inset 0 0 30px rgba(255,62,200,0.05); }
+body.theme-fantasy .companion-panel { box-shadow: inset 0 0 30px rgba(110,147,184,0.05); }
+
+
+/* ============================================================
+   3. RESET AND BASE
+   Identical in all three original blocks.
+============================================================ */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Crimson Pro', Georgia, serif;
+  color: var(--parchment);
+}
+
+
+/* ============================================================
+   4. PER-SCREEN BODY RULES
+   These three were the real collision. Each was identical in intent but
+   different in value, and each used to win simply by being injected last.
+============================================================ */
+body.screen-lobby {
+  font-size: 17px;
+  background: #080510;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow-y: auto;
+}
+
+body.screen-char {
+  font-size: 16px;
+  background: #080510;
+  min-height: 100vh;
+  overflow-y: auto;
+}
+
+html.screen-game, body.screen-game { height: 100%; overflow: hidden; }
+body.screen-game {
+  background: var(--ink);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+
+  /* PRESERVED BUG. The game screen's original block contained
+     :root{--bone:var(--bone);} which is a circular reference. Per the CSS
+     custom property spec that makes --bone invalid at computed-value time,
+     so everything using var(--bone) on the game screen falls back to
+     inherited color instead of #d4c5a9. Scoped here so it breaks only on the
+     game screen, exactly as it does today. Do not fix in Phase 1. */
+  --bone: var(--bone);
+
+  /* Carried over from the original block. Both appear to be unused;
+     nothing in the game screen markup references them. */
+  --fantasy-acc: 201,168,76;
+  --reality-acc: 122,158,168;
+}
+
+/* BACKGROUND ATMOSPHERE
+   The plain body::before rules below are overridden by the higher-specificity
+   body.theme-*::before rules above the moment a role is picked, which is
+   always. Kept for fidelity with the original cascade. */
+body.screen-lobby::before,
+body.screen-game::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 20% 50%, rgba(45,27,78,0.3) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 50%, rgba(10,20,30,0.4) 0%, transparent 60%),
+    radial-gradient(ellipse at 50% 100%, rgba(139,26,26,0.15) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+body.screen-char::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 20% 50%, rgba(45,27,78,0.3) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 50%, rgba(10,20,30,0.4) 0%, transparent 60%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+
+/* ============================================================
+   5. LOBBY
+   From the head <style> block of saintalia-v2.html.
+============================================================ */
+
+/* VEIL CRACK ANIMATION */
+body.screen-lobby::after {
+  content: '';
+  position: fixed;
+  top: 0; left: 50%;
+  transform: translateX(-50%);
+  width: 1px;
+  height: 100vh;
+  background: linear-gradient(180deg,
+    transparent 0%,
+    rgba(var(--gold-rgb),0.1) 20%,
+    rgba(var(--gold-rgb),0.3) 50%,
+    rgba(var(--gold-rgb),0.1) 80%,
+    transparent 100%);
+  animation: veil-line 4s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+
+@keyframes veil-line {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.8; }
+}
+
+/* MAIN CONTAINER */
+.lobby {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 560px;
+  padding: 2rem 1.5rem;
+  text-align: center;
+}
+
+/* TITLE */
+.title-eyebrow {
+  font-family: 'Cinzel', serif;
+  font-size: 0.86rem;
+  letter-spacing: 0.5em;
+  color: var(--gold);
+  text-transform: uppercase;
+  margin-bottom: 1rem;
+  opacity: 0.7;
+}
+
+.title-main {
+  font-family: 'Cinzel Decorative', cursive;
+  font-size: clamp(2.8rem, 10vw, 4.5rem);
+  color: var(--gold-light);
+  line-height: 1;
+  text-shadow:
+    0 0 40px rgba(var(--gold-rgb),0.5),
+    0 0 80px rgba(var(--gold-rgb),0.2);
+  margin-bottom: 0.4rem;
+  animation: title-pulse 5s ease-in-out infinite;
+}
+
+@keyframes title-pulse {
+  0%, 100% { text-shadow: 0 0 40px rgba(var(--gold-rgb),0.5), 0 0 80px rgba(var(--gold-rgb),0.2); }
+  50% { text-shadow: 0 0 60px rgba(var(--gold-rgb),0.7), 0 0 120px rgba(var(--gold-rgb),0.3); }
+}
+
+.title-sub {
+  font-family: 'Cinzel', serif;
+  font-size: 0.97rem;
+  letter-spacing: 0.25em;
+  color: var(--mist-light);
+  font-style: italic;
+  margin-bottom: 2.5rem;
+  opacity: 0.8;
+}
+
+.divider {
+  width: 160px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  margin: 0 auto 2.5rem;
+}
+
+/* STEP PANELS */
+.step {
+  display: none;
+  animation: fade-in 0.4s ease;
+}
+
+.step.active { display: block; }
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.step-label {
+  font-family: 'Cinzel', serif;
+  font-size: 1.05rem;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--bone);
+  opacity: 0.5;
+  margin-bottom: 1.5rem;
+}
+
+/* ROLE SELECTION */
+.role-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.role-card {
+  border: 1px solid rgba(255,255,255,0.08);
+  padding: 1.2rem 1rem;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  background: rgba(0,0,0,0.3);
+  position: relative;
+  overflow: hidden;
+}
+
+.role-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.25s;
+}
+
+.role-card.fantasy::before {
+  background: radial-gradient(ellipse at center, rgba(255,62,200,0.12) 0%, transparent 70%);
+}
+
+.role-card.reality::before {
+  background: radial-gradient(ellipse at center, rgba(110,147,184,0.12) 0%, transparent 70%);
+}
+
+.role-card:hover::before,
+.role-card.selected::before { opacity: 1; }
+
+.role-card.selected.fantasy {
+  border-color: rgba(255,62,200,0.6);
+  box-shadow: 0 0 20px rgba(255,62,200,0.18);
+}
+
+.role-card.selected.reality {
+  border-color: rgba(110,147,184,0.6);
+  box-shadow: 0 0 20px rgba(110,147,184,0.18);
+}
+
+.role-card:hover {
+  border-color: rgba(255,255,255,0.2);
+  transform: translateY(-2px);
+}
+
+.role-icon {
+  font-size: 1.8rem;
+  margin-bottom: 0.6rem;
+  display: block;
+}
+
+.role-name {
+  font-family: 'Cinzel', serif;
+  font-size: 0.97rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  margin-bottom: 0.4rem;
+}
+
+.role-card.fantasy .role-name { color: #ff7ddd; }
+.role-card.reality .role-name { color: #9fc0da; }
+
+.role-desc {
+  font-size: 0.97rem;
+  line-height: 1.5;
+  color: var(--bone);
+  opacity: 0.7;
+  font-style: italic;
+}
+
+/* ACTION SELECTOR */
+.action-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.action-tab {
+  padding: 0.7rem;
+  font-family: 'Cinzel', serif;
+  font-size: 0.86rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: transparent;
+  color: var(--bone);
+  opacity: 0.6;
+  transition: all 0.2s;
+}
+
+.action-tab.active {
+  opacity: 1;
+  border-color: rgba(var(--gold-rgb),0.5);
+  color: var(--gold);
+  background: rgba(var(--gold-rgb),0.06);
+}
+
+.action-tab:hover { opacity: 0.9; }
+
+/* CODE PANELS */
+.code-panel { display: none; }
+.code-panel.active { display: block; animation: fade-in 0.3s ease; }
+
+.code-display {
+  background: rgba(0,0,0,0.5);
+  border: 1px solid rgba(var(--gold-rgb),0.25);
+  padding: 1.2rem;
+  margin-bottom: 1rem;
+  position: relative;
+}
+
+.code-word {
+  font-family: 'Cinzel Decorative', cursive;
+  font-size: clamp(1.4rem, 5vw, 2rem);
+  color: var(--gold-light);
+  letter-spacing: 0.1em;
+  text-shadow: 0 0 20px rgba(var(--gold-rgb),0.4);
+  display: block;
+  margin-bottom: 0.3rem;
+}
+
+.code-hint {
+  font-size: 0.94rem;
+  color: var(--bone);
+  opacity: 0.5;
+  font-style: italic;
+}
+
+.code-input-wrap {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.code-input {
+  flex: 1;
+  background: rgba(0,0,0,0.5);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: var(--parchment);
+  padding: 0.7rem 0.9rem;
+  font-family: 'Cinzel Decorative', cursive;
+  font-size: 1.12rem;
+  letter-spacing: 0.05em;
+  outline: none;
+  transition: border-color 0.2s;
+  text-transform: lowercase;
+}
+
+.code-input:focus { border-color: rgba(var(--gold-rgb),0.5); }
+.code-input::placeholder {
+  font-family: 'Crimson Pro', serif;
+  font-size: 1.02rem;
+  font-style: italic;
+  color: rgba(255,255,255,0.2);
+  letter-spacing: 0;
+}
+
+/* BUTTONS */
+.btn-primary {
+  font-family: 'Cinzel', serif;
+  font-size: 1rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink);
+  background: linear-gradient(135deg, var(--gold) 0%, var(--gold-light) 50%, var(--gold) 100%);
+  border: none;
+  padding: 0.85rem 2rem;
+  cursor: pointer;
+  clip-path: polygon(6px 0%, calc(100% - 6px) 0%, 100% 6px, 100% calc(100% - 6px), calc(100% - 6px) 100%, 6px 100%, 0% calc(100% - 6px), 0% 6px);
+  transition: all 0.25s ease;
+  box-shadow: 0 0 20px rgba(var(--gold-rgb),0.25);
+  width: 100%;
+  margin-bottom: 0.7rem;
+}
+
+.btn-primary:hover:not(:disabled) {
+  box-shadow: 0 0 35px rgba(var(--gold-rgb),0.5);
+  transform: translateY(-1px);
+}
+
+.btn-primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-secondary {
+  font-family: 'Cinzel', serif;
+  font-size: 0.92rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--bone);
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.12);
+  padding: 0.7rem 1.5rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  width: 100%;
+  opacity: 0.7;
+}
+
+.btn-secondary:hover { opacity: 1; border-color: rgba(255,255,255,0.25); }
+
+/* STATUS MESSAGES */
+.status-area {
+  min-height: 3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.status-msg {
+  font-size: 1.02rem;
+  font-style: italic;
+  line-height: 1.5;
+  text-align: center;
+  padding: 0.6rem 1rem;
+  border-left: 2px solid;
+}
+
+.status-msg.waiting {
+  color: var(--bone);
+  border-left-color: var(--gold);
+  background: rgba(var(--gold-rgb),0.05);
+  animation: status-pulse 2s ease-in-out infinite;
+}
+
+.status-msg.connected {
+  color: #7bc47b;
+  border-left-color: #7bc47b;
+  background: rgba(123,196,123,0.05);
+}
+
+.status-msg.error {
+  color: var(--blood-light);
+  border-left-color: var(--blood-light);
+  background: rgba(192,57,43,0.05);
+}
+
+.status-msg.info {
+  color: var(--mist-light);
+  border-left-color: var(--mist);
+  background: rgba(var(--mist-rgb),0.05);
+}
+
+@keyframes status-pulse {
+  0%, 100% { opacity: 0.8; }
+  50% { opacity: 0.4; }
+}
+
+/* CONNECTION DOTS */
+.connection-dots {
+  display: inline-flex;
+  gap: 4px;
+  vertical-align: middle;
+  margin-left: 6px;
+}
+
+.connection-dots span {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--gold);
+  animation: dot-bounce 1.2s ease-in-out infinite;
+}
+
+.connection-dots span:nth-child(2) { animation-delay: 0.2s; }
+.connection-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes dot-bounce {
+  0%, 80%, 100% { opacity: 0.2; transform: scale(0.8); }
+  40% { opacity: 1; transform: scale(1); }
+}
+
+/* GROQ KEY INPUT */
+.key-notice {
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(255,255,255,0.07);
+  padding: 1rem;
+  margin-bottom: 1.2rem;
+  text-align: left;
+}
+
+.key-notice p {
+  font-size: 0.97rem;
+  color: var(--bone);
+  opacity: 0.7;
+  line-height: 1.6;
+  margin-bottom: 0.7rem;
+  font-style: italic;
+}
+
+.key-input {
+  width: 100%;
+  background: rgba(0,0,0,0.5);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: var(--parchment);
+  padding: 0.6rem 0.8rem;
+  font-family: 'Crimson Pro', serif;
+  font-size: 1.05rem;
+  outline: none;
+  transition: border-color 0.2s;
+  margin-bottom: 0.5rem;
+}
+
+.key-input:focus { border-color: rgba(var(--gold-rgb),0.5); }
+
+.key-status {
+  font-size: 0.92rem;
+  font-style: italic;
+  color: var(--mist-light);
+  min-height: 1em;
+}
+
+/* CONNECTED STATE */
+.connected-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: 'Cinzel', serif;
+  font-size: 0.86rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  padding: 0.4rem 0.9rem;
+  border: 1px solid rgba(123,196,123,0.4);
+  color: #7bc47b;
+  background: rgba(123,196,123,0.05);
+  margin-bottom: 1.5rem;
+}
+
+.connected-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: #7bc47b;
+  box-shadow: 0 0 6px #7bc47b;
+  animation: connected-glow 2s ease-in-out infinite;
+}
+
+@keyframes connected-glow {
+  0%, 100% { box-shadow: 0 0 4px #7bc47b; }
+  50% { box-shadow: 0 0 10px #7bc47b; }
+}
+
+/* LORE TEXT */
+.lore-text {
+  font-size: 1.02rem;
+  font-style: italic;
+  color: var(--bone);
+  opacity: 0.6;
+  line-height: 1.7;
+  margin-bottom: 1.5rem;
+}
+
+/* DEBUG PANEL -- goes behind the DEBUG flag in Phase 1 step 5 */
+.debug-panel {
+  position: fixed;
+  bottom: 1rem;
+  right: 1rem;
+  background: rgba(0,0,0,0.8);
+  border: 1px solid rgba(255,255,255,0.1);
+  padding: 0.5rem 0.8rem;
+  font-family: monospace;
+  font-size: 0.86rem;
+  color: rgba(255,255,255,0.4);
+  z-index: 100;
+  max-width: 250px;
+}
+
+.debug-panel div { margin-bottom: 2px; }
+
+
+/* ============================================================
+   6. CHARACTER CREATION
+   From buildCharScreen()'s injected <style> block.
+
+   That block opened with :root{--acc:<value>;--acc-rgb:<value>;} built by
+   template interpolation. Dropped: the interpolated values are byte for byte
+   what body.theme-fantasy and body.theme-artist already set, and a body rule
+   beats a :root rule for everything inside body. Verified no-op.
+============================================================ */
+
+.cc { max-width:720px; margin:0 auto; padding:2rem 1.2rem 4rem; position:relative; z-index:1; }
+
+/* HEADER */
+.cc-top { text-align:center; margin-bottom:1.5rem; }
+.cc-eye { font-family:'Cinzel',serif; font-size:0.72rem; letter-spacing:0.45em; text-transform:uppercase; color:var(--acc); opacity:0.7; margin-bottom:0.5rem; }
+.cc-ttl { font-family:'Cinzel Decorative',cursive; font-size:clamp(1.6rem,5vw,2.6rem); color:var(--acc); text-shadow:0 0 30px rgba(var(--acc-rgb),0.4); line-height:1.1; margin-bottom:0.4rem; }
+.cc-div { width:120px; height:1px; background:linear-gradient(90deg,transparent,var(--acc),transparent); margin:1rem auto 1.5rem; }
+
+/* TABS */
+.tabs { display:flex; gap:0; border-bottom:1px solid rgba(255,255,255,0.07); margin-bottom:1.8rem; overflow-x:auto; }
+.tab { flex:1; min-width:80px; padding:0.7rem 0.4rem; font-family:'Cinzel',serif; font-size:0.72rem; letter-spacing:0.12em; text-transform:uppercase; background:transparent; border:none; color:#d4c5a9; opacity:0.4; cursor:pointer; transition:all 0.2s; border-bottom:2px solid transparent; position:relative; top:1px; white-space:nowrap; }
+.tab.active { opacity:1; color:var(--acc); border-bottom-color:var(--acc); }
+.tab.done::after { content:'✓'; font-size:0.6rem; margin-left:3px; color:var(--acc); vertical-align:super; }
+.tab:hover:not(.active) { opacity:0.65; }
+
+/* PANELS */
+.panel { display:none; animation:fi 0.3s ease; }
+.panel.active { display:block; }
+@keyframes fi { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+
+/* SECTION */
+.sec-label { font-family:'Cinzel',serif; font-size:0.72rem; letter-spacing:0.3em; text-transform:uppercase; color:var(--acc); opacity:0.65; margin-bottom:0.8rem; padding-bottom:0.4rem; border-bottom:1px solid rgba(var(--acc-rgb),0.12); }
+.sec-hint { font-size:1rem; font-style:italic; color:#d4c5a9; opacity:0.6; margin-bottom:1.2rem; line-height:1.6; }
+
+/* BUTTON GRID -- main selection style */
+.btn-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:0.6rem; margin-bottom:1rem; }
+.sel-btn { padding:0.7rem 0.9rem; border:1px solid rgba(255,255,255,0.1); background:rgba(0,0,0,0.3); color:#f5efe0; font-family:'Crimson Pro',serif; font-size:1rem; cursor:pointer; transition:all 0.18s; text-align:left; line-height:1.3; }
+.sel-btn:hover { border-color:rgba(var(--acc-rgb),0.45); background:rgba(0,0,0,0.5); transform:translateY(-1px); }
+.sel-btn.selected { border-color:rgba(var(--acc-rgb),0.8); background:rgba(var(--acc-rgb),0.1); color:#fff; }
+.sel-btn.selected::before { content:'✦ '; color:var(--acc); font-size:0.75rem; }
+
+/* CUSTOM INPUT ROW (char screen flavor) */
+body.screen-char .custom-row { display:flex; gap:0.5rem; margin-top:0.3rem; }
+.custom-field { flex:1; background:rgba(0,0,0,0.45); border:1px solid rgba(var(--acc-rgb),0.18); color:#f5efe0; padding:0.6rem 0.8rem; font-family:'Crimson Pro',serif; font-size:1rem; font-style:italic; outline:none; transition:border-color 0.2s; }
+.custom-field:focus { border-color:rgba(var(--acc-rgb),0.55); }
+.custom-field::placeholder { color:rgba(255,255,255,0.22); font-style:italic; }
+.custom-confirm { font-family:'Cinzel',serif; font-size:0.72rem; letter-spacing:0.1em; padding:0.6rem 1rem; border:1px solid rgba(var(--acc-rgb),0.35); background:transparent; color:var(--acc); cursor:pointer; transition:all 0.2s; white-space:nowrap; }
+.custom-confirm:hover { background:rgba(var(--acc-rgb),0.1); }
+
+/* NAME FIELD SPECIFIC */
+.name-input { width:100%; background:rgba(0,0,0,0.45); border:1px solid rgba(var(--acc-rgb),0.25); color:#f5efe0; padding:0.8rem 1rem; font-family:'Cinzel Decorative',cursive; font-size:1.1rem; letter-spacing:0.05em; outline:none; transition:border-color 0.2s; margin-bottom:0.8rem; }
+.name-input:focus { border-color:rgba(var(--acc-rgb),0.6); }
+.name-input::placeholder { font-family:'Crimson Pro',serif; font-size:0.95rem; color:rgba(255,255,255,0.2); font-style:italic; letter-spacing:0; }
+
+/* RACE + JOB CARDS */
+.card-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:0.8rem; }
+.card { border:1px solid rgba(255,255,255,0.08); padding:1rem; cursor:pointer; transition:all 0.2s; background:rgba(0,0,0,0.3); position:relative; }
+.card:hover { border-color:rgba(var(--acc-rgb),0.38); background:rgba(0,0,0,0.45); transform:translateY(-2px); }
+.card.selected { border-color:rgba(var(--acc-rgb),0.75); background:rgba(var(--acc-rgb),0.08); box-shadow:0 0 14px rgba(var(--acc-rgb),0.12); }
+.card.selected::after { content:'✦'; position:absolute; top:0.5rem; right:0.7rem; color:var(--acc); font-size:0.7rem; }
+.card-icon { font-size:1.5rem; margin-bottom:0.4rem; display:block; }
+.card-name { font-family:'Cinzel',serif; font-size:0.85rem; letter-spacing:0.1em; color:var(--acc); margin-bottom:0.25rem; }
+.card-bonus { font-family:'Cinzel',serif; font-size:0.68rem; color:#d4c5a9; opacity:0.5; margin-bottom:0.5rem; }
+.card-lore { font-size:0.9rem; color:#d4c5a9; opacity:0.65; font-style:italic; line-height:1.5; }
+.card-ability { font-family:'Cinzel',serif; font-size:0.72rem; color:var(--acc); opacity:0.8; margin-top:0.4rem; }
+.card-ability-desc { font-size:0.85rem; color:#d4c5a9; opacity:0.55; font-style:italic; line-height:1.4; margin-top:0.2rem; }
+.card-mirror { font-size:0.78rem; color:#d4c5a9; opacity:0.4; font-style:italic; margin-bottom:0.4rem; }
+
+/* STATS */
+.pool-display { font-family:'Cinzel',serif; text-align:center; margin-bottom:1.2rem; }
+.pool-num { font-family:'Cinzel Decorative',cursive; font-size:2.2rem; color:var(--acc); display:block; line-height:1; }
+.pool-lbl { font-size:0.72rem; letter-spacing:0.3em; text-transform:uppercase; opacity:0.45; }
+.stat-rows { display:flex; flex-direction:column; gap:0.9rem; }
+.stat-row { display:grid; grid-template-columns:150px 1fr 28px; align-items:center; gap:1rem; }
+.stat-name { font-family:'Cinzel',serif; font-size:0.82rem; letter-spacing:0.1em; color:var(--acc); }
+.stat-desc-sm { font-size:0.78rem; font-style:italic; color:#d4c5a9; opacity:0.42; display:block; margin-top:2px; }
+.stat-bonus { font-family:'Cinzel',serif; font-size:0.62rem; color:#7bc47b; margin-left:4px; }
+.pips { display:flex; gap:5px; }
+.pip { width:24px; height:24px; border:1px solid rgba(var(--acc-rgb),0.28); cursor:pointer; transition:all 0.15s; }
+.pip.on { background:rgba(var(--acc-rgb),0.7); border-color:var(--acc); }
+.pip:hover { border-color:rgba(var(--acc-rgb),0.7); }
+.stat-val { font-family:'Cinzel Decorative',cursive; font-size:1.05rem; color:var(--acc); text-align:center; }
+
+/* APPEARANCE */
+.appear-grid { display:grid; grid-template-columns:1fr 1fr; gap:1.2rem; }
+@media(max-width:480px) { .appear-grid{grid-template-columns:1fr;} }
+.appear-group {}
+.appear-lbl { font-family:'Cinzel',serif; font-size:0.72rem; letter-spacing:0.2em; text-transform:uppercase; color:#d4c5a9; opacity:0.6; margin-bottom:0.5rem; display:block; }
+
+/* PERSONALITY */
+.pers-q { margin-bottom:1.5rem; }
+.pers-q-txt { font-family:'Cinzel',serif; font-size:0.82rem; letter-spacing:0.1em; color:var(--acc); margin-bottom:0.6rem; display:block; }
+.pers-opts { display:flex; flex-direction:column; gap:0.35rem; }
+.pers-opt { padding:0.6rem 0.9rem; border:1px solid rgba(255,255,255,0.08); background:rgba(0,0,0,0.3); cursor:pointer; font-size:0.95rem; font-style:italic; color:#d4c5a9; transition:all 0.18s; text-align:left; }
+.pers-opt:hover { border-color:rgba(var(--acc-rgb),0.38); background:rgba(0,0,0,0.45); }
+.pers-opt.selected { border-color:rgba(var(--acc-rgb),0.7); background:rgba(var(--acc-rgb),0.08); color:#fff; }
+
+/* NAV */
+.cc-nav { display:flex; gap:0.8rem; margin-top:2rem; }
+.btn-next { flex:1; font-family:'Cinzel',serif; font-size:0.85rem; letter-spacing:0.18em; text-transform:uppercase; color:#0a0608; background:linear-gradient(135deg,var(--acc) 0%,rgba(var(--acc-rgb),0.85) 50%,var(--acc) 100%); border:none; padding:0.95rem 1.5rem; cursor:pointer; clip-path:polygon(6px 0%,calc(100% - 6px) 0%,100% 6px,100% calc(100% - 6px),calc(100% - 6px) 100%,6px 100%,0% calc(100% - 6px),0% 6px); transition:all 0.25s; box-shadow:0 0 20px rgba(var(--acc-rgb),0.22); }
+.btn-next:hover:not(:disabled) { box-shadow:0 0 40px rgba(var(--acc-rgb),0.5); transform:translateY(-1px); }
+.btn-next:disabled { opacity:0.35; cursor:not-allowed; }
+.btn-back { font-family:'Cinzel',serif; font-size:0.78rem; letter-spacing:0.15em; text-transform:uppercase; color:#d4c5a9; background:transparent; border:1px solid rgba(255,255,255,0.12); padding:0.95rem 1.5rem; cursor:pointer; opacity:0.6; transition:all 0.2s; }
+.btn-back:hover { opacity:1; border-color:rgba(255,255,255,0.28); }
+
+/* WAITING */
+.waiting { display:none; text-align:center; padding:3rem 1rem; animation:fi 0.4s ease; }
+.waiting.on { display:block; }
+.wait-glyph { font-family:'Cinzel Decorative',cursive; font-size:3rem; color:var(--acc); opacity:0.35; display:block; margin-bottom:1.2rem; animation:pulse 3s ease-in-out infinite; }
+.wait-txt { font-size:1.05rem; font-style:italic; color:#d4c5a9; opacity:0.65; line-height:1.8; }
+.dots { display:inline-flex; gap:5px; margin-left:8px; vertical-align:middle; }
+.dot { width:5px; height:5px; border-radius:50%; background:var(--acc); animation:db 1.2s ease-in-out infinite; display:inline-block; }
+.dot:nth-child(2) { animation-delay:0.2s; }
+.dot:nth-child(3) { animation-delay:0.4s; }
+@keyframes pulse { 0%,100%{opacity:0.35} 50%{opacity:0.7} }
+@keyframes db { 0%,80%,100%{opacity:0.2;transform:scale(0.8)} 40%{opacity:1;transform:scale(1)} }
+.sum-card { border:1px solid rgba(var(--acc-rgb),0.25); padding:1.2rem; background:rgba(0,0,0,0.3); margin-bottom:1rem; }
+.sum-name { font-family:'Cinzel Decorative',cursive; font-size:1.5rem; color:var(--acc); margin-bottom:0.3rem; }
+.sum-line { font-size:0.95rem; color:#d4c5a9; opacity:0.7; font-style:italic; margin-bottom:0.2rem; }
+.sum-stats { display:flex; flex-wrap:wrap; gap:0.5rem; margin-top:0.8rem; }
+.stat-badge { font-family:'Cinzel',serif; font-size:0.72rem; letter-spacing:0.1em; padding:0.25rem 0.55rem; border:1px solid rgba(var(--acc-rgb),0.3); color:var(--acc); }
+
+
+/* ============================================================
+   7. GAME SCREEN
+   From buildGameScreen()'s injected <style> block.
+
+   Its :root block moved to body.screen-game in section 4 above, because one
+   of its declarations is the preserved --bone cycle and it must not leak to
+   the lobby or the char screen.
+============================================================ */
+
+/* HEADER */
+.g-header { display:flex; align-items:center; justify-content:space-between; padding:0.5rem 1rem; border-bottom:1px solid rgba(var(--gold-rgb),0.15); background:rgba(0,0,0,0.7); flex-shrink:0; gap:1rem; flex-wrap:wrap; }
+.g-logo { font-family:'Cinzel Decorative',cursive; font-size:clamp(0.8rem,1.5vw,1rem); color:var(--gold-light); text-shadow:0 0 20px rgba(var(--gold-rgb),0.4); white-space:nowrap; }
+.veil-wrap { text-align:center; flex:1; }
+.veil-label { font-family:'Cinzel',serif; font-size:clamp(0.55rem,1vw,0.75rem); letter-spacing:0.3em; text-transform:uppercase; color:var(--mist-light); opacity:0.7; }
+.veil-track { width:140px; height:4px; background:rgba(255,255,255,0.06); margin:3px auto 0; position:relative; }
+.veil-fill { height:100%; background:linear-gradient(90deg,#0d3535,#8b1a1a,var(--gold)); transition:width 1.2s ease; }
+.turn-info { font-family:'Cinzel',serif; font-size:clamp(0.55rem,1vw,0.75rem); letter-spacing:0.15em; color:var(--bone); opacity:0.6; text-align:right; white-space:nowrap; }
+.energy-tag { font-family:'Cinzel',serif; font-size:clamp(0.55rem,1vw,0.72rem); letter-spacing:0.15em; color:#c0392b; opacity:0.8; }
+
+/* BODY GRID */
+.g-body { display:grid; grid-template-columns:1fr 260px 1fr; flex:1; min-height:0; overflow:hidden; }
+@media(max-width:800px) { .g-body{grid-template-columns:1fr;overflow-y:auto;} }
+
+/* SIDE PANELS */
+.side { display:flex; flex-direction:column; border-right:1px solid rgba(255,255,255,0.05); overflow:hidden; }
+.side.reality-side { border-right:none; border-left:1px solid rgba(255,255,255,0.05); }
+.side.your-side { box-shadow:inset 0 0 30px rgba(var(--gold-rgb),0.04); }
+.opponent-banner { font-family:'Cinzel',serif; font-size:clamp(0.55rem,1vw,0.72rem); letter-spacing:0.25em; text-transform:uppercase; text-align:center; padding:0.3rem; background:rgba(0,0,0,0.4); color:rgba(255,255,255,0.25); border-bottom:1px solid rgba(255,255,255,0.05); }
+.your-banner { font-family:'Cinzel',serif; font-size:clamp(0.55rem,1vw,0.72rem); letter-spacing:0.25em; text-transform:uppercase; text-align:center; padding:0.3rem; color:var(--acc); background:rgba(var(--acc-rgb),0.05); border-bottom:1px solid rgba(var(--acc-rgb),0.12); }
+
+/* PANEL HEADER */
+.side-head { padding:0.4rem 0.7rem; border-bottom:1px solid rgba(255,255,255,0.05); flex-shrink:0; }
+.fantasy-side .side-head { background:rgba(45,27,78,0.2); }
+.reality-side .side-head { background:rgba(10,20,30,0.3); }
+.nameplate { display:flex; align-items:center; gap:0.5rem; }
+.avatar { width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:'Cinzel',serif; font-size:0.78rem; flex-shrink:0; }
+.fantasy-side .avatar { background:rgba(var(--gold-rgb),0.15); border:1px solid rgba(var(--gold-rgb),0.4); color:var(--gold-light); }
+.reality-side .avatar { background:rgba(var(--mist-rgb),0.15); border:1px solid rgba(var(--mist-rgb),0.4); color:var(--mist-light); }
+.char-info h4 { font-family:'Cinzel',serif; font-size:clamp(0.7rem,1.1vw,0.85rem); color:var(--parchment); }
+.char-info span { font-size:clamp(0.6rem,0.9vw,0.72rem); opacity:0.5; font-style:italic; }
+.side-badge { font-family:'Cinzel',serif; font-size:clamp(0.52rem,0.8vw,0.62rem); letter-spacing:0.18em; text-transform:uppercase; padding:0.12rem 0.35rem; border-radius:2px; margin-left:auto; }
+.fantasy-side .side-badge { color:var(--gold-light); background:rgba(var(--gold-rgb),0.08); border:1px solid rgba(var(--gold-rgb),0.25); }
+.reality-side .side-badge { color:var(--mist-light); background:rgba(var(--mist-rgb),0.08); border:1px solid rgba(var(--mist-rgb),0.25); }
+
+/* STORY FEED
+   Defined twice in the original block, here and again under SHARED STORY FEED
+   below. Both kept in original order so the cascade resolves identically. */
+.story-feed { flex:1; overflow-y:auto; padding:0.4rem 0.6rem; display:flex; flex-direction:column; gap:0.4rem; scrollbar-width:thin; scrollbar-color:rgba(var(--gold-rgb),0.15) transparent; }
+.entry { font-size:clamp(0.75rem,1vw,0.87rem); line-height:1.55; padding:0.4rem 0.55rem; border-left:2px solid; background:rgba(0,0,0,0.18); }
+.entry.narrator { border-left-color:var(--gold); color:var(--parchment); font-style:italic; }
+.entry.action { border-left-color:var(--mist); color:var(--bone); }
+.entry.note-in { border-left-color:#8b1a1a; background:rgba(139,26,26,0.08); color:var(--parchment); font-style:italic; }
+.entry.system { border-left-color:rgba(255,255,255,0.15); color:var(--bone); opacity:0.6; }
+.entry-tag { font-family:'Cinzel',serif; font-size:clamp(0.48rem,0.7vw,0.58rem); letter-spacing:0.2em; text-transform:uppercase; opacity:0.5; display:block; margin-bottom:0.15rem; }
+
+/* HOLOGRAPHIC TERMINAL (fantasy) */
+.holo-terminal { background:rgba(26,5,40,0.6); backdrop-filter:blur(5px); -webkit-backdrop-filter:blur(5px); border:1px solid rgba(255,62,200,0.3); box-shadow:0 0 12px rgba(255,62,200,0.18),inset 0 0 14px rgba(157,77,255,0.08); position:relative; flex-shrink:0; }
+.holo-terminal::before { content:''; position:absolute; inset:0; background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(255,62,200,0.025) 3px,rgba(255,62,200,0.025) 4px); pointer-events:none; }
+.holo-scanline { position:absolute; left:0; right:0; height:2px; background:rgba(255,62,200,0.18); animation:scanline 4s linear infinite; pointer-events:none; }
+@keyframes scanline { 0%{top:0} 100%{top:100%} }
+.holo-label { font-family:'Orbitron',sans-serif; font-size:clamp(0.5rem,0.8vw,0.62rem); letter-spacing:0.25em; text-transform:uppercase; color:rgba(255,125,221,0.8); text-shadow:0 0 8px rgba(255,62,200,0.5); padding:0.25rem 0.6rem; border-bottom:1px solid rgba(255,62,200,0.2); }
+.holo-msg-area { padding:0.35rem 0.6rem; max-height:80px; overflow-y:auto; scrollbar-width:thin; scrollbar-color:rgba(255,62,200,0.25) transparent; }
+.holo-msg { font-size:clamp(0.65rem,0.9vw,0.76rem); color:rgba(255,125,221,0.85); font-family:'Share Tech Mono',monospace; line-height:1.35; margin-bottom:0.15rem; }
+.holo-msg.incoming { color:rgba(var(--other-acc-rgb),0.95); }
+.holo-corrupt { font-size:clamp(0.62rem,0.9vw,0.74rem); color:rgba(255,80,80,0.6); font-family:'Share Tech Mono',monospace; font-style:italic; }
+.holo-input-row { display:flex; gap:0.3rem; padding:0.3rem 0.45rem; border-top:1px solid rgba(255,62,200,0.15); }
+.holo-input { flex:1; background:transparent; border:none; border-bottom:1px solid rgba(255,62,200,0.35); color:rgba(255,125,221,0.95); font-family:'Share Tech Mono',monospace; font-size:clamp(0.65rem,0.9vw,0.76rem); outline:none; padding:0.15rem 0.25rem; }
+.holo-input::placeholder { color:rgba(255,62,200,0.35); }
+.holo-send { font-family:'Orbitron',sans-serif; font-size:clamp(0.55rem,0.8vw,0.65rem); letter-spacing:0.1em; color:rgba(255,125,221,0.8); background:transparent; border:1px solid rgba(255,62,200,0.35); padding:0.25rem 0.5rem; cursor:pointer; transition:all 0.2s; }
+.holo-send:hover { background:rgba(255,62,200,0.1); color:#ff7ddd; box-shadow:0 0 10px rgba(255,62,200,0.3); }
+.holo-send:disabled { opacity:0.3; cursor:not-allowed; }
+
+/* PHONE (reality) */
+.phone-wrap { background:#efe7d6; border:2px solid #2c3a4a; border-radius:14px; overflow:hidden; flex-shrink:0; }
+.phone-label { font-family:-apple-system,'Segoe UI',Roboto,Helvetica,sans-serif; font-size:clamp(0.5rem,0.8vw,0.62rem); letter-spacing:0.08em; text-transform:none; color:#9fc0da; background:#1c2a3a; text-align:center; padding:0.28rem 0.6rem; border-bottom:none; }
+.phone-thread { padding:0.45rem 0.6rem; max-height:80px; overflow-y:auto; scrollbar-width:thin; scrollbar-color:rgba(110,147,184,0.4) transparent; }
+.phone-bubble { margin-bottom:0.5rem; }
+.phone-bubble.sent { text-align:right; }
+.phone-bubble.recv { text-align:left; }
+.bubble-inner { display:inline-block; padding:0.3rem 0.55rem; font-size:clamp(0.65rem,0.9vw,0.76rem); line-height:1.4; max-width:85%; border-radius:14px; font-family:-apple-system,'Segoe UI',Roboto,Helvetica,sans-serif; }
+.sent .bubble-inner { background:#3e7cb8; border:1px solid #36699c; color:#f5f9ff; font-style:normal; border-bottom-right-radius:4px; }
+.recv .bubble-inner { background:#e3d8c0; border:1px solid #d3c6a8; color:#2a2419; font-style:normal; border-bottom-left-radius:4px; }
+.corrupt-image { display:block; width:100%; max-width:120px; height:60px; margin:0.4rem auto; background:linear-gradient(135deg,rgba(139,26,26,0.4),rgba(45,27,78,0.6),rgba(10,20,30,0.8)); border:1px solid rgba(139,26,26,0.3); position:relative; overflow:hidden; }
+.corrupt-image::after { content:'image corrupted'; position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-family:'Cinzel',serif; font-size:0.5rem; letter-spacing:0.2em; color:rgba(255,255,255,0.2); }
+.phone-input-row { display:flex; gap:0.4rem; padding:0.4rem 0.5rem; border-top:1px solid #d3c6a8; background:#e9dfc9; align-items:center; }
+.phone-input { flex:1; background:#faf4e6; border:1px solid #d3c6a8; border-radius:14px; color:#2a2419; font-family:-apple-system,'Segoe UI',Roboto,Helvetica,sans-serif; font-size:0.92rem; font-style:normal; outline:none; padding:0.3rem 0.7rem; }
+.phone-input::placeholder { color:#8a7f68; }
+.phone-input:focus { border-color:#6e93b8; }
+.phone-send { font-family:-apple-system,'Segoe UI',Roboto,Helvetica,sans-serif; font-size:0.95rem; color:#f5f9ff; background:#3e7cb8; border:none; border-radius:50%; width:30px; height:30px; line-height:1; cursor:pointer; transition:all 0.2s; flex-shrink:0; }
+.phone-send:hover { background:#4d8cc7; }
+.phone-send:disabled { opacity:0.3; cursor:not-allowed; }
+
+/* CHOICES */
+.choice-area { padding:0.4rem 0.7rem 0.6rem; border-top:1px solid rgba(255,255,255,0.05); flex-shrink:0; }
+.choice-label { font-family:'Cinzel',serif; font-size:clamp(0.5rem,0.8vw,0.62rem); letter-spacing:0.25em; text-transform:uppercase; opacity:0.45; margin-bottom:0.3rem; }
+.choice-btn { display:block; width:100%; text-align:left; padding:0.3rem 0.5rem; margin-bottom:0.2rem; font-family:'Crimson Pro',serif; font-size:clamp(0.68rem,0.95vw,0.8rem); line-height:1.3; cursor:pointer; border:1px solid; background:transparent; color:var(--parchment); transition:all 0.18s; }
+.fantasy-side .choice-btn { border-color:rgba(var(--gold-rgb),0.18); }
+.fantasy-side .choice-btn:hover:not(:disabled) { background:rgba(var(--gold-rgb),0.07); border-color:rgba(var(--gold-rgb),0.45); }
+.reality-side .choice-btn { border-color:rgba(var(--mist-rgb),0.18); }
+.reality-side .choice-btn:hover:not(:disabled) { background:rgba(var(--mist-rgb),0.07); border-color:rgba(var(--mist-rgb),0.45); }
+.choice-btn:disabled { opacity:0.3; cursor:not-allowed; }
+.choice-num { font-family:'Cinzel',serif; font-size:1.05rem; opacity:0.4; margin-right:0.4rem; }
+body.screen-game .custom-row { display:flex; gap:0.4rem; margin-top:0.4rem; }
+.custom-input { flex:1; background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.08); color:var(--parchment); padding:0.45rem 0.6rem; font-family:'Crimson Pro',serif; font-size:1.02rem; font-style:italic; outline:none; transition:border-color 0.2s; }
+.fantasy-side .custom-input:focus { border-color:rgba(var(--gold-rgb),0.45); }
+.reality-side .custom-input:focus { border-color:rgba(var(--mist-rgb),0.45); }
+.custom-btn { font-family:'Cinzel',serif; font-size:0.87rem; letter-spacing:0.1em; padding:0.45rem 0.8rem; border:1px solid; background:transparent; cursor:pointer; transition:all 0.2s; }
+.fantasy-side .custom-btn { color:var(--gold-light); border-color:rgba(var(--gold-rgb),0.3); }
+.reality-side .custom-btn { color:var(--mist-light); border-color:rgba(var(--mist-rgb),0.3); }
+.custom-btn:disabled { opacity:0.3; cursor:not-allowed; }
+
+/* THINKING */
+.thinking { display:none; font-family:'Cinzel',serif; font-size:1.05rem; letter-spacing:0.2em; text-align:center; padding:0.4rem; animation:flick 1.5s ease-in-out infinite; }
+.thinking.on { display:block; }
+.fantasy-side .thinking { color:var(--gold-light); }
+.reality-side .thinking { color:var(--mist-light); }
+@keyframes flick { 0%,100%{opacity:0.7} 50%{opacity:0.2} }
+
+/* CENTER COLUMN */
+.center-col { display:flex; flex-direction:column; background:rgba(0,0,0,0.5); border-left:1px solid rgba(var(--gold-rgb),0.08); border-right:1px solid rgba(var(--gold-rgb),0.08); overflow:hidden; }
+
+/* COMPANION PANEL -- a muted window into the other player's console */
+.companion-panel { display:flex; flex-direction:column; border-right:1px solid rgba(255,255,255,0.05); border-left:1px solid rgba(var(--other-acc-rgb),0.2); overflow:hidden; background:rgba(0,0,0,0.25); }
+.companion-banner { font-family:'Cinzel',serif; font-size:0.72rem; letter-spacing:0.25em; text-transform:uppercase; text-align:center; padding:0.5rem; color:rgba(var(--other-acc-rgb),0.55); background:rgba(0,0,0,0.3); border-bottom:1px solid rgba(255,255,255,0.05); }
+.companion-body { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:2rem 1.2rem; text-align:center; }
+.comp-avatar { width:52px; height:52px; border-radius:50%; border:1px solid rgba(var(--other-acc-rgb),0.4); background:rgba(var(--other-acc-rgb),0.12); color:var(--other-acc); font-family:'Cinzel',serif; font-size:1.2rem; display:flex; align-items:center; justify-content:center; margin-bottom:0.8rem; }
+.comp-name { font-family:'Cinzel Decorative',cursive; font-size:1rem; color:var(--other-acc); margin-bottom:0.2rem; }
+.comp-role { font-size:0.82rem; font-style:italic; color:var(--bone); opacity:0.5; margin-bottom:1rem; }
+.comp-divider { width:80px; height:1px; background:linear-gradient(90deg,transparent,rgba(var(--other-acc-rgb),0.25),transparent); margin:0.8rem auto; }
+.comp-stat-label { font-family:'Cinzel',serif; font-size:0.65rem; letter-spacing:0.2em; text-transform:uppercase; color:var(--bone); opacity:0.45; margin-bottom:0.4rem; }
+.comp-meter-track { width:100%; height:5px; background:rgba(255,255,255,0.06); border:1px solid rgba(var(--other-acc-rgb),0.15); }
+.comp-meter-fill { height:100%; background:rgba(var(--other-acc-rgb),0.6); transition:width 1s ease; }
+.comp-status { font-size:0.85rem; font-style:italic; color:var(--bone); opacity:0.5; line-height:1.5; }
+.comp-note-label { font-size:0.8rem; font-style:italic; color:var(--bone); opacity:0.35; line-height:1.5; margin-top:0.5rem; }
+
+/* PRIVATE STORY FEED -- your side only */
+.private-feed-section { flex:1; display:flex; flex-direction:column; min-height:0; padding:0.4rem 0.6rem 0; overflow:hidden; }
+.private-feed-label { font-family:'Cinzel',serif; font-size:clamp(0.48rem,0.75vw,0.58rem); letter-spacing:0.25em; text-transform:uppercase; opacity:0.55; text-align:center; margin-bottom:0.25rem; flex-shrink:0; }
+.fantasy-side .private-feed-label { color:var(--gold); }
+.reality-side .private-feed-label { color:var(--mist-light); }
+.private-feed { flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:0.5rem; scrollbar-width:thin; scrollbar-color:rgba(var(--gold-rgb),0.12) transparent; }
+
+/* SHARED STORY FEED -- center log only */
+.shared-feed-section { flex:1; display:flex; flex-direction:column; min-height:0; padding:0.4rem 0.6rem 0; }
+.shared-feed-label { font-family:'Cinzel',serif; font-size:clamp(0.48rem,0.75vw,0.58rem); letter-spacing:0.25em; text-transform:uppercase; color:var(--gold); opacity:0.55; text-align:center; margin-bottom:0.25rem; flex-shrink:0; }
+.story-feed { flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:0.6rem; scrollbar-width:thin; scrollbar-color:rgba(var(--gold-rgb),0.12) transparent; }
+
+/* VEIL SENSE (fantasy player's center top) */
+.veil-sense-section { padding:0.4rem 0.6rem; border-bottom:1px solid rgba(var(--gold-rgb),0.06); flex-shrink:0; }
+.veil-sense-text { font-size:clamp(0.65rem,0.9vw,0.78rem); font-style:italic; color:var(--bone); opacity:0.5; text-align:center; line-height:1.5; }
+
+/* NOTE CENTER */
+.note-center { padding:0.35rem 0.6rem; border-top:1px solid rgba(var(--gold-rgb),0.08); flex-shrink:0; }
+.note-center-label { font-family:'Cinzel',serif; font-size:clamp(0.48rem,0.75vw,0.58rem); letter-spacing:0.25em; text-transform:uppercase; color:#c0392b; opacity:0.7; text-align:center; margin-bottom:0.25rem; }
+.note-thread { max-height:70px; overflow-y:auto; margin-bottom:0.3rem; scrollbar-width:thin; scrollbar-color:rgba(139,26,26,0.2) transparent; }
+.note-bubble-f { padding:0.4rem 0.6rem; margin-bottom:0.3rem; font-size:0.82rem; font-style:italic; border-left:2px solid rgba(var(--gold-rgb),0.4); background:rgba(45,27,78,0.2); color:var(--parchment); line-height:1.4; }
+.note-bubble-r { padding:0.4rem 0.6rem; margin-bottom:0.3rem; font-size:0.82rem; font-style:italic; border-left:2px solid rgba(var(--mist-rgb),0.4); background:rgba(10,20,30,0.3); color:var(--parchment); line-height:1.4; }
+.note-from-tag { font-family:'Cinzel',serif; font-size:0.55rem; letter-spacing:0.15em; opacity:0.45; display:block; margin-bottom:0.15rem; }
+.note-compose-row { display:flex; gap:0.4rem; }
+.note-input-center { flex:1; background:rgba(0,0,0,0.45); border:1px solid rgba(139,26,26,0.25); color:var(--parchment); padding:0.5rem 0.6rem; font-family:'Crimson Pro',serif; font-size:0.88rem; font-style:italic; outline:none; transition:border-color 0.2s; }
+.note-input-center:focus { border-color:rgba(139,26,26,0.55); }
+.note-input-center::placeholder { color:rgba(255,255,255,0.2); }
+.note-send-center { font-family:'Cinzel',serif; font-size:0.68rem; letter-spacing:0.12em; color:#c0392b; border:1px solid rgba(139,26,26,0.35); background:rgba(139,26,26,0.06); padding:0.5rem 0.8rem; cursor:pointer; transition:all 0.2s; white-space:nowrap; }
+.note-send-center:hover { background:rgba(139,26,26,0.15); }
+.note-send-center:disabled { opacity:0.3; cursor:not-allowed; }
+
+/* MURAL */
+.mural-section { flex:0 0 auto; padding:0.5rem; display:flex; flex-direction:column; max-height:35%; }
+.mural-label { font-family:'Cinzel',serif; font-size:clamp(0.5rem,0.8vw,0.62rem); letter-spacing:0.25em; text-transform:uppercase; color:var(--gold); opacity:0.6; text-align:center; margin-bottom:0.3rem; }
+.mural-canvas { flex:1; min-height:0; border:1px solid rgba(var(--gold-rgb),0.1); background:#06030e; position:relative; overflow:hidden; }
+#muralSvg { width:100%; height:100%; min-height:180px; }
+.mural-cap { font-size:clamp(0.6rem,0.85vw,0.72rem); font-style:italic; color:var(--bone); opacity:0.55; text-align:center; margin-top:0.25rem; line-height:1.3; min-height:1.5em; }
+
+/* VEIL METER */
+.veil-section { padding:0.3rem 0.7rem; border-top:1px solid rgba(var(--gold-rgb),0.08); border-bottom:1px solid rgba(var(--gold-rgb),0.08); flex-shrink:0; }
+.veil-center-label { font-family:'Cinzel',serif; font-size:clamp(0.5rem,0.8vw,0.6rem); letter-spacing:0.25em; text-transform:uppercase; color:#c0392b; opacity:0.7; text-align:center; margin-bottom:0.2rem; }
+.veil-center-track { height:6px; background:rgba(255,255,255,0.05); border:1px solid rgba(139,26,26,0.2); position:relative; }
+.veil-center-fill { height:100%; background:linear-gradient(90deg,rgba(13,53,53,0.8),rgba(139,26,26,0.9),rgba(var(--gold-rgb),0.9)); transition:width 1.5s ease; }
+.energy-row { display:flex; justify-content:space-between; margin-top:0.4rem; }
+.energy-pip-label { font-family:'Cinzel',serif; font-size:0.5rem; letter-spacing:0.15em; text-transform:uppercase; opacity:0.45; }
+.energy-val { font-family:'Cinzel Decorative',cursive; font-size:1.08rem; color:#c0392b; }
+
+/* SCROLLBARS */
+::-webkit-scrollbar { width:3px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:rgba(var(--gold-rgb),0.15); }
