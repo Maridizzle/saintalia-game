@@ -10,24 +10,39 @@ Every phase ends with a verification gate. A phase is not done until Maridizzle 
 
 Working principle for the whole plan: engine and content are separate. The engine is built to read scene content as data. Story content arrives from Maridizzle whenever it arrives. The engine never waits on it and never fills it in.
 
-## Open questions blocking later phases
+## Answered, after the vault arrived
 
-These are Maridizzle's to answer. Claude will not assume any of them.
+`saintalia_7.md` settled four of the six. Recorded here so nobody relitigates them.
 
-1. **Scene order.** The 15 Questions calls itself Beat 2-B. What is 2-A? Does the play order run Opening, Lockdown, 15 Questions, gate? Or something else? (Blocks Phase 6.)
+1. **Scene order.** Five-act spine. Origin (The Opening), Layer 1 (The Lockdown, The Escape, The Sky Tears), Layer 2 (The Dream = beat 2-A, The 15 Questions = beat 2-B, The Branching Confessions, The Soul Tagging, four fusion outcomes), Layer 3, Layer 4, six endings. Full table in CLAUDE.md.
 
-2. **How the Opening ends.** The Opening currently has no end condition. It loops turns forever. Something has to hand off to the next scene: a turn count, a mural layer, a keyword in the narration, or both players confirming. (Blocks Phase 6.)
+2. **How the Opening ends.** The Lockdown fires the moment the connection between the two players is established. The building seals around it, the way a wound closes around a foreign object.
 
-3. **What carries between scenes.** Does the veil meter keep climbing through the Lockdown? Does the fantasy player's energy keep draining? Is the note thread one continuous conversation across all three scenes, or does each scene get a fresh one? (Blocks Phase 3's state design. Claude will build the plumbing to carry everything and let Maridizzle switch pieces off.)
+3. **What carries.** Energy drain is canonical, cumulative, and accelerates while navigating the Lockdown. The note system is the through-line and the vault specifies a 45 second window for it. Build the plumbing to carry everything; let Maridizzle switch pieces off.
 
-4. **The Groq key in the 15 Questions.** That scene currently needs a key from BOTH players, because each side voices its own answers. Everything else in the game is host-only. Three ways to reconcile, Maridizzle picks:
+4. **Protagonists.** Tyvian and Sasha are **templates, not fixed characters.** Character creation stays. Consequence: the ten tangent guardrails are written as their specific biographies and need genericizing into shapes. **That rewrite is Maridizzle's.** Every tangent ships as data the engine reads, so her rewrite never touches code.
+
+## Still open
+
+5. **The Groq key in the 15 Questions.** That scene currently needs a key from BOTH players, because each side voices its own answers. Everything else is host-only. Three ways to reconcile, Maridizzle picks:
    - **(a) Host proxies.** Non-host sends a `narrate-request`, host calls Groq, host returns a `narrate-response`. One key for the whole game. Recommended: it matches every other scene and only one person has to go get a key.
    - **(b) Per-player keys for that scene only.** Works today, but the second player hits a key prompt mid-game.
    - **(c) Non-host falls back to raw seed text.** Free, but half the game reads noticeably flatter.
 
-5. **Tangent name coupling.** Several 15 Questions tangents hardcode the names **Tyvian** and **Sasha**. Both are entries in v2's default name lists, so the text assumes characters a player may not have picked. Leave as is, genericize, or rewrite? Content call, Maridizzle's.
-
 6. **Root `index.html`.** Pages will serve from `main` at root. Right now root has no `index.html`, so the Pages URL would 404 and the game would only be reachable at `/saintalia-v2.html`. Options: put the game at root, or put a redirect at root pointing into `game/`. (Blocks Phase 7.)
+
+7. **Trigger collisions in the 15 Questions.** The vault claims Q4-B and Q7-B for BOTH Self as Threat A and B, and Q6-B and Q8-B for BOTH Conditional Survival B and The Connection Itself. The code picked one owner each, which strands Conditional Survival B on Q3-B alone and Self as Threat A on Q9-A alone. Maridizzle to settle. Also unassigned in the vault: Q7-A.
+
+8. **The turn cap.** 15 questions exist, `G.totalTurns` is 10. Five never get asked. Intentional or an oversight?
+
+## Content fixes only Maridizzle can make
+
+Claude does not write story content. These are logged, not actioned.
+
+- **Lockdown flashes 2 and 3 are swapped.** The vault maps waterbottle to The Neural Network and compass to The Book. The code has them crossed. Point IDs are correct; only the flash text is wrong.
+- Genericizing the ten tangent guardrails (see item 4).
+- The bridge text covering The Escape, The Sky Tears and The Dream (see Phase 6).
+- The coming-soon gate's copy.
 
 ## Phase 0 -- Inventory (read only) -- COMPLETE
 
@@ -204,19 +219,42 @@ Goal: The 15 Questions plays inside the merged app.
 
 Do not touch: question text, seed text, tangent text.
 
-## Phase 6 -- Transitions and the coming-soon gate
+## Phase 6 -- Bridges, transitions, and the coming-soon gate
 
-Goal: one continuous playthrough, Opening to gate, with nothing jarring in between.
+Goal: one continuous playthrough, Opening to gate.
 
-Blocked on open questions 1, 2, and 3.
+Maridizzle's decision: **bridge the gaps, gate at the end.** The three built scenes are not adjacent, so the run is:
+
+```
+The Opening
+  -> The Lockdown
+    -> bridge: The Escape
+    -> bridge: The Sky Tears
+    -> bridge: The Dream
+  -> The 15 Questions
+    -> coming soon
+```
+
+A bridge is a short narrative interstitial standing in for a real beat that is not built yet. It is not a fake beat and must never pretend to be one. Each gets a scene container, a continue control, and a `BRIDGE_TBD_<name>` token where the text goes.
 
 ### Steps
 
-1. Give the Opening an end condition, per Maridizzle's answer to question 2.
-2. Wire the transitions in the order Maridizzle sets in question 1.
-3. Carry the state she names in question 3. Build the plumbing for all of it; let her switch pieces off.
-4. Write a transition screen between scenes so a scene swap is not an abrupt DOM replacement.
-5. Build `js/scenes/coming-soon.js`: the final gate. Content is Maridizzle's. Claude builds the container with a `TBD` token in it and nothing else.
+1. End the Opening on the connection being established, per the vault. The building seals; the Lockdown mounts.
+2. Build the bridge scene type: one container, one block of Maridizzle's text, one continue control that both sides must confirm.
+3. Stand up three bridges with TBD tokens: `BRIDGE_TBD_ESCAPE`, `BRIDGE_TBD_SKYTEARS`, `BRIDGE_TBD_DREAM`.
+4. Carry state across every transition: characters, note thread, veil, energy, scene results.
+5. A transition screen so a scene swap is not an abrupt DOM replacement.
+6. `js/scenes/coming-soon.js`: the final gate. Container with a `TBD` token. Copy is Maridizzle's.
+
+**Claude writes no bridge text.** The tokens ship visible and ugly on purpose so an unwritten bridge cannot be mistaken for finished content.
+
+### Gate
+
+- One unbroken playthrough on two devices, Opening to coming-soon, no reload, no console errors.
+- Characters, note history, and carried state survive every transition on both sides.
+- Every unwritten bridge shows its TBD token plainly.
+- Refreshing mid-game fails gracefully with a readable message rather than a white screen. Real save and resume is backlog.
+- The full run works with no Groq key at all.
 
 ### Gate
 

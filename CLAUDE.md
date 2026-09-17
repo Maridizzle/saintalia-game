@@ -183,6 +183,10 @@ Notes, mural, UI: `sendNote`, `receiveNote`, `addNoteToThread`, `addHoloMsg`, `a
 
 - Contact with a wrong object fires one of five flash transmissions in `FLASH_CONTENT`. Five found unlocks the building.
 
+- **CONTENT BUG, confirmed against the vault: flashes 2 and 3 are swapped.** The vault maps waterbottle to point 2, The Neural Network, and compass to point 3, The Book. The code has `bottle: flashName:'The Book', pointId:2` and `compass: flashName:'The Neural Network', pointId:3`. The point IDs are correct on both. Only the flash content is crossed. Points 1, 4 and 5 are correct. Maridizzle's content, Maridizzle's fix.
+
+- Missing against the vault's Lockdown spec: the 45 second note window (the vault's core mechanic for this beat), the meditation step where P2 prompts the artist before the flash fires, and the required P2 confirmation on point 4 that what the artist saw is real.
+
 - `storyHistory` is built but never sent to Groq. This scene has no conversation memory.
 
 - Object state (`obj.found`, `foundCount`) lives only on the artist side. P2's copy is never updated; `receiveFlash` manipulates the DOM directly.
@@ -200,6 +204,12 @@ Notes, mural, UI: `sendNote`, `receiveNote`, `addNoteToThread`, `addHoloMsg`, `a
 - Each question has two seeded answers (each pointing at a tangent) and two neutral answers from `NEUTRAL_SEEDS`. All four are shuffled so the seeded ones are not obvious.
 
 - A seeded answer fires one of 10 tangents in `TANGENTS`. The ASKER, not the answerer, chooses to pull the thread or let it pass. Pulling it makes the answerer speak a 4 to 6 sentence monologue.
+
+- `G.totalTurns` is 10 but 15 questions are defined. Five never get asked in any playthrough. The vault lists all 15 as the skeleton and sets no cap. Unresolved.
+
+- Two tangent triggers drift from the vault. `change.a` fires Conditional Survival A, but the vault assigns Q7-A to no tangent at all. `guilt.b` fires Grief Topology B, but the vault says Q9-B belongs to Self as Threat B.
+
+- Three trigger collisions are ambiguities in the vault itself, not code bugs. Q4-B and Q7-B are claimed by BOTH Self as Threat A and Self as Threat B. Q6-B and Q8-B are claimed by BOTH Conditional Survival B and The Connection Itself. The code picked one owner for each, which leaves Conditional Survival B reachable only from Q3-B and Self as Threat A reachable only from Q9-A. Maridizzle to settle.
 
 - Groq is given the seed or tangent text as a guardrail and told to expand it, never quote it. With no key it falls back to printing the raw seed.
 
@@ -229,7 +239,25 @@ Concatenating these files means the last definition silently wins. Merging requi
 
 - The camera sees through the veil in a way the naked eye cannot.
 
-- Communication with the veil is fragmentary, overwhelming, and alien.
+- Communication with the veil is fragmentary, overwhelming, and alien. It feels like standing inside a thunderstorm that is also a library that is also a scream.
+
+Added from the vault (`saintalia_7.md`, supplied by Maridizzle):
+
+- **The entity is not malevolent. It is compulsive, an addict.** It bleeds through every available surface without meaning to. This governs tone everywhere: each stage of the mural, each horror, should read as beautiful and wrong at once, never purely sinister.
+
+- The harvest mechanic: fusing two living veils into a chimera makes them die together, which releases harvestable cosmic energy. The entity collects it and forges a new universe. It is addicted to that process.
+
+- The organization is a eugenics research company. Its stated mission, to isolate the biological mechanisms of life and develop a healthy human genome, is genuine. The humans inside do not know they are being used. They did not discover the crossover point; they were placed above it. **Its name is still not established.**
+
+- Sasha was hired through legitimate channels with no connection to the research divisions. The location came first, not the artist.
+
+- The base mural commission is a jungle scene: waterfall, cave, animals, pond. Commissioned as PR to project life, abundance, harmlessness.
+
+- Five-act layer structure, silent cumulative scoring, no announced weight. Early choices carry equal potential consequence to late ones. Origin, Layer 1 survival and first trust, Layer 2 cosmic scale and melding begins, Layer 3 melding accelerates and the entity notices, Layer 4 cascade and resolution.
+
+- Both players meld as a result of the accidental contact. Not chosen, not special. The entity notices them the way a scientist notices contamination: cold, impersonal, maintenance-minded. The conflict is butterfly effects, not combat.
+
+- The five wrong objects and their point mapping are locked: key made of teeth = 1, water bottle that pours nothing = 2, compass whose needle points inward = 3, clock with no hands but too many faces = 4, photograph where every subject has their back turned = 5.
 
 ## Established beyond the Opening (from later sessions; confirm with Maridizzle before building on)
 
@@ -243,13 +271,60 @@ Concatenating these files means the last definition silently wins. Merging requi
 
 - Content coupling to resolve: several 15 Questions tangents hardcode two character names, **Tyvian** (fantasy side) and **Sasha** (reality side). Both are entries in v2's default name lists, so the guardrail text assumes characters a player may not have chosen. Maridizzle's call.
 
-### Described in earlier sessions, no file in this repo
+### The beat spine, from the vault
 
-- The Branching Confessions (parallel NPC encounters, both NPCs unnamed) and The Soul Tagging (four-question honesty exchange, scored 2/1/0, threshold 5+, knotwork tattoo outcome). PLAN.md Phase 0 expected these to be the two sandbox files. They are not. Nothing matching either was found. They may live elsewhere, or may not be built yet. Do not reconstruct them from this description.
+Established in `saintalia_7.md`. Code column says what exists in this repo.
 
-- Six endings, no clean wins.
+| Layer | Beat | Code |
+|---|---|---|
+| Origin | The Opening | built (v2) |
+| 1 | The Lockdown | built (sandbox) |
+| 1 | The Escape | folded into the Lockdown's completion message |
+| 1 | The Sky Tears | not built |
+| 2 | The Dream (beat 2-A) | not built |
+| 2 | The 15 Questions (beat 2-B) | built (sandbox) |
+| 2 | The Branching Confessions | not built, not specified |
+| 2 | The Soul Tagging | not built, fully specified |
+| 2 | Four fusion outcomes | not built, fully specified |
+| 3 | The Tavern | not built, not established |
+| 4 | Cascade | not built |
+| end | Six endings | not built, all fully specified |
 
-- Four scoring variables: `veilDeath`, `hopelessness`, `veilKnowledge`, `voidCorruption`, each `{value, type}`. Currently stored as JSONB in the mindmap's Railway Postgres, not in the game. Confirmed absent from all three HTML files.
+**The three built scenes are not adjacent.** The Escape, The Sky Tears and The Dream sit between the Lockdown and the 15 Questions.
+
+**The Dream reuses the same five objects** with a different mechanic (the artist describes, P2 guides placement on a wall) and a different flash sequence that always fires in a fixed order regardless of placement order: seed of life inside a glowing seed, flower of life expanding, tree of life forming, the tree exploding into a geometric network, a dark cloaked figure entering the network and poisoning it.
+
+### Scoring
+
+Four variables: `veilDeath`, `hopelessness`, `veilKnowledge`, `voidCorruption`. Currently JSONB in the mindmap's Railway Postgres, absent from all three HTML files.
+
+All six ending formulas are established:
+
+| Ending | veilDeath | hopelessness | veilKnowledge | voidCorruption |
+|---|---|---|---|---|
+| The Conscription | medium | low | high | low |
+| The Unmaking | high | high | low | high |
+| The Obliteration | low | low | high | low |
+| The Corruption | medium | medium | high | medium |
+| The Implosion | high | high | high | low |
+| The Succession | high | low | low | high |
+
+Six endings, no clean wins. The Conscription is the closest thing to a win.
+
+### Protagonists: decided
+
+Tyvian (fantasy) and Sasha (reality) are written throughout the vault as THE protagonists. **Maridizzle's decision: they are templates, and character creation stays.** Players build their own character.
+
+Consequence: the ten tangent guardrails in The 15 Questions are written as Sasha's and Tyvian's specific biographies (a custody arrangement, a shed creature, a named scroll). Those need genericizing into shapes rather than specifics so they fit any character. **That rewrite is Maridizzle's, not Claude's.** Build every tangent as data the engine reads so the text can be swapped without touching code.
+
+### Not yet established, still
+
+- The organization's name. The cosmic entity's name.
+- The Branching Confessions in any detail.
+- The Traveling Scholar's name (Layer 2 NPC, otherwise specified, with variable impacts: Veil Knowledge +4 if P2 shares, Hopelessness +3 if not, Void Corruption +2 if P2 withholds and enters fusion alone).
+- Layer 3 beyond "The Tavern" as a title. Layer 4 in any detail.
+- Where the Soul Tagging tattoo appears on each body, and whether it plays a functional role later.
+- Trigger points for mural stages mL2 through mL5.
 
 ## Not established. Never invent these.
 
