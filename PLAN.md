@@ -28,11 +28,13 @@ The vault and Maridizzle's decisions settled these. Recorded here so nobody reli
 
 7. **Root `index.html`. A redirect into `game/`.** Pages is live from `main` at root and 404'd on the bare URL because no `/index.html` existed. Root now carries a small redirect with a link fallback, so the bare URL lands on the game and nothing has to move out of `game/`.
 
+8. **The turn cap is deliberate, and already correct.** It counts main questions only, never tangents. It stops the scene spinning into eternity, and drawing 10 of 15 gives a different subset every playthrough. Verified against the code: tangents call `advanceTurn()` without incrementing the counter, so they cost nothing. No change needed. Do not "fix" it.
+
 ## Still open
 
-8. **Trigger collisions in the 15 Questions.** The vault claims Q4-B and Q7-B for BOTH Self as Threat A and B, and Q6-B and Q8-B for BOTH Conditional Survival B and The Connection Itself. The code picked one owner each, which strands Conditional Survival B on Q3-B alone and Self as Threat A on Q9-A alone. Maridizzle to settle. Also unassigned in the vault: Q7-A.
+9. **Trigger collisions in the 15 Questions.** The vault claims Q4-B and Q7-B for BOTH Self as Threat A and B, and Q6-B and Q8-B for BOTH Conditional Survival B and The Connection Itself. The code picked one owner each, which strands Conditional Survival B on Q3-B alone and Self as Threat A on Q9-A alone. Maridizzle to settle. Also unassigned in the vault: Q7-A.
 
-9. **The turn cap.** 15 questions exist, `G.totalTurns` is 10. Five never get asked. Intentional or an oversight?
+That is the only open question left.
 
 ## Content fixes only Maridizzle can make
 

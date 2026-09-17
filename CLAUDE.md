@@ -205,7 +205,9 @@ Notes, mural, UI: `sendNote`, `receiveNote`, `addNoteToThread`, `addHoloMsg`, `a
 
 - A seeded answer fires one of 10 tangents in `TANGENTS`. The ASKER, not the answerer, chooses to pull the thread or let it pass. Pulling it makes the answerer speak a 4 to 6 sentence monologue.
 
-- `G.totalTurns` is 10 but 15 questions are defined. Five never get asked in any playthrough. The vault lists all 15 as the skeleton and sets no cap. Unresolved.
+- **The 10 turn cap is deliberate and correctly built.** Maridizzle's design: the cap counts MAIN questions only, never tangents. Two reasons. It stops the scene spinning into eternity, and drawing 10 of 15 means a different subset every playthrough, which is replay value.
+
+  Verified in code: `G.questionsAsked++` fires only in `broadcastQuestion` (line 794) and on the received `question-asked` message (line 598). Every tangent path calls `advanceTurn()`, which only reads the count at line 858 and never increments it. `drawBank(4)` offers four random unused questions each turn. Do not "fix" this.
 
 - Two tangent triggers drift from the vault. `change.a` fires Conditional Survival A, but the vault assigns Q7-A to no tangent at all. `guilt.b` fires Grief Topology B, but the vault says Q9-B belongs to Self as Threat B.
 
@@ -265,11 +267,11 @@ Added from the vault (`saintalia_7.md`, supplied by Maridizzle):
 
 - **The Lockdown.** Artist sealed in the mural building. Nine rooms, five wrong objects, P2 guiding by compass from a pressure-point grid. Five flash transmissions fire on contact: Cellular Fusion, The Neural Network, The Book, The Flythrough, The Harvest. Full prose for all five is in the file.
 
-- **The 15 Questions (labelled Beat 2-B in its own title).** 15 questions, 10 turns, alternating asker, 11 named tangents. Tangent names: Broken Epistemology A and B, Conditional Survival A and B, Grief Topology A and B, Self as Threat A and B, Systemic Rot, The Connection Itself.
+- **The 15 Questions (Beat 2-B).** 15 questions in the pool, 10 main questions asked per playthrough, alternating asker, 10 named tangents. Tangent names: Broken Epistemology A and B, Conditional Survival A and B, Grief Topology A and B, Self as Threat A and B, Systemic Rot, The Connection Itself.
 
-- Open question for Maridizzle: the 15 Questions is labelled 2-B. What is 2-A? Is The Lockdown 2-A, or something else? Claude will not assume an order.
+- Beat 2-A is **The Dream**, per the vault. Not built. See the beat spine table below.
 
-- Content coupling to resolve: several 15 Questions tangents hardcode two character names, **Tyvian** (fantasy side) and **Sasha** (reality side). Both are entries in v2's default name lists, so the guardrail text assumes characters a player may not have chosen. Maridizzle's call.
+- The Tyvian and Sasha coupling in the tangent text is decided: they are templates, character creation stays, and genericizing the guardrails is Maridizzle's rewrite. See "Protagonists: decided" below.
 
 ### The beat spine, from the vault
 
