@@ -114,14 +114,15 @@
 </div>
 
 <!--
-  Script tags are added one per chunk as each file lands, so every chunk's
-  console stays clean for its own gate. Load order when complete:
-    data/char-data.js, js/connection.js, js/character.js, js/narrator.js, js/game.js
-  Still to come: js/narrator.js and js/game.js (chunk D).
+  Load order matters. char-data defines CHAR_DATA, which character.js reads.
+  connection.js defines S and setScreen, which everything else reads.
+  narrator.js calls into game.js at runtime only, never at load.
 -->
 <script src="data/char-data.js"></script>
 <script src="js/connection.js"></script>
 <script src="js/character.js"></script>
+<script src="js/narrator.js"></script>
+<script src="js/game.js"></script>
 
 </body>
 </html>
