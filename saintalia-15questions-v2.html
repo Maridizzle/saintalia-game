@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, minimum-scale=1.0, maximum-scale=5.0">
+<title>Saintalia — Beat 2-B: The 15 Questions</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&family=Cinzel:wght@400;600&family=Crimson+Pro:ital,wght@0,400;0,500;1,400&family=Orbitron:wght@400;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<style>
+  :root {
+    --bg:#08060f; --surface:#0f0b1a; --border:rgba(255,255,255,0.06);
+    --gold:#c9a84c; --gold-light:#e8c96a; --gold-dim:rgba(var(--gold-rgb),0.12);
+    --mist:#7a9ea8; --mist-light:#a8c4cc; --mist-dim:rgba(var(--mist-rgb),0.12);
+    --blood:#8b1a1a; --blood-light:#c0392b;
+    --bone:#d4c5a9; --parchment:#f5efe0; --text:#e8e0d0; --dim:rgba(255,255,255,0.35);
+    --tangent:#6b3fa0; --tangent-dim:rgba(107,63,160,0.12);
+    --green:#1d9e75;
+    --gold-rgb:201,168,76; --mist-rgb:122,158,168;
+    --acc:#c9a84c; --acc-rgb:201,168,76; --other-acc:#7a9ea8; --other-acc-rgb:122,158,168;
+  }
+  /* ===== PER-PLAYER CONSOLE THEMES ===== */
+  /* Artist / Waking World — slate blue, parchment, cell-phone console */
+  body.theme-artist{
+    --bg:#0e1622; --surface:#18242f; --border:rgba(110,147,184,0.16);
+    --gold:#6e93b8; --gold-light:#9fc0da; --gold-rgb:110,147,184; --gold-dim:rgba(110,147,184,0.12);
+    --mist:#6e93b8; --mist-light:#9fc0da; --mist-rgb:110,147,184; --mist-dim:rgba(110,147,184,0.12);
+    --parchment:#f3ecdc; --text:#e6e9ee;
+    --acc:#6e93b8; --acc-rgb:110,147,184; --other-acc:#ff3ec8; --other-acc-rgb:255,62,200;
+  }
+  body.theme-artist::before{background:radial-gradient(ellipse at 25% 30%,rgba(110,147,184,0.16) 0%,transparent 60%),radial-gradient(ellipse at 75% 80%,rgba(28,42,58,0.5) 0%,transparent 60%);}
+  /* Saintalia — fuchsia / deep purple holographic console */
+  body.theme-fantasy{
+    --bg:#0d0318; --surface:#1a0a2b; --border:rgba(255,62,200,0.18);
+    --gold:#ff3ec8; --gold-light:#ff7ddd; --gold-rgb:255,62,200; --gold-dim:rgba(255,62,200,0.12);
+    --mist:#9d4dff; --mist-light:#c39bff; --mist-rgb:157,77,255; --mist-dim:rgba(157,77,255,0.12);
+    --parchment:#f4e9ff; --text:#f4e9ff;
+    --acc:#ff3ec8; --acc-rgb:255,62,200; --other-acc:#6e93b8; --other-acc-rgb:110,147,184;
+  }
+  body.theme-fantasy::before{background:repeating-linear-gradient(0deg,transparent 0 3px,rgba(255,62,200,0.025) 3px 4px),radial-gradient(ellipse at 30% 40%,rgba(60,17,102,0.5) 0%,transparent 60%),radial-gradient(ellipse at 70% 80%,rgba(255,62,200,0.10) 0%,transparent 55%);animation:holo-flicker 7s ease-in-out infinite;}
+  @keyframes holo-flicker{0%,100%{opacity:1}48%{opacity:1}50%{opacity:0.93}52%{opacity:1}73%{opacity:0.97}74%{opacity:1}}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Crimson Pro',Georgia,serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;}
+  body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 20% 50%,rgba(45,27,78,0.25) 0%,transparent 60%),radial-gradient(ellipse at 80% 50%,rgba(10,20,30,0.35) 0%,transparent 60%);pointer-events:none;z-index:0;}
+
+  /* LOBBY */
+  .lobby{position:relative;z-index:1;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2rem 1.2rem 3rem;}
+  .lobby-inner{width:100%;max-width:540px;}
+  .lobby-title{font-family:'Cinzel Decorative',cursive;font-size:clamp(1.6rem,5vw,2.4rem);color:var(--gold-light);text-shadow:0 0 30px rgba(var(--gold-rgb),0.4);text-align:center;margin-bottom:0.3rem;}
+  .lobby-sub{font-family:'Cinzel',serif;font-size:0.72rem;letter-spacing:0.4em;text-transform:uppercase;color:var(--mist-light);opacity:0.6;text-align:center;margin-bottom:2rem;}
+  .divider{width:120px;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent);margin:0 auto 2rem;}
+
+  /* LOBBY STEPS */
+  .lobby-step{display:none;animation:fi 0.35s ease;}
+  .lobby-step.active{display:block;}
+  @keyframes fi{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+  .step-label{font-family:'Cinzel',serif;font-size:0.68rem;letter-spacing:0.3em;text-transform:uppercase;color:var(--bone);opacity:0.45;text-align:center;margin-bottom:1.2rem;}
+
+  /* ROLE CARDS */
+  .role-grid{display:grid;grid-template-columns:1fr 1fr;gap:0.8rem;margin-bottom:1.2rem;}
+  .role-card{border:1px solid var(--border);padding:1rem;cursor:pointer;transition:all 0.2s;background:rgba(0,0,0,0.3);text-align:center;}
+  .role-card:hover{transform:translateY(-2px);}
+  .role-card.fantasy.sel{border-color:rgba(255,62,200,0.6);background:rgba(255,62,200,0.08);box-shadow:0 0 16px rgba(255,62,200,0.15);}
+  .role-card.reality.sel{border-color:rgba(110,147,184,0.6);background:rgba(110,147,184,0.08);box-shadow:0 0 16px rgba(110,147,184,0.15);}
+  .role-card:not(.sel):hover{border-color:rgba(255,255,255,0.15);}
+  .role-icon{font-size:1.6rem;display:block;margin-bottom:0.5rem;}
+  .role-name{font-family:'Cinzel',serif;font-size:0.82rem;letter-spacing:0.15em;text-transform:uppercase;margin-bottom:0.3rem;}
+  .role-card.fantasy .role-name{color:#ff7ddd;}
+  .role-card.reality .role-name{color:#9fc0da;}
+  .role-desc{font-size:0.85rem;font-style:italic;color:var(--bone);opacity:0.6;line-height:1.5;}
+
+  /* ACTION TABS */
+  .action-tabs{display:grid;grid-template-columns:1fr 1fr;gap:0.4rem;margin-bottom:1.2rem;}
+  .action-tab{padding:0.6rem;font-family:'Cinzel',serif;font-size:0.72rem;letter-spacing:0.18em;text-transform:uppercase;cursor:pointer;border:1px solid rgba(255,255,255,0.08);background:transparent;color:var(--bone);opacity:0.5;transition:all 0.2s;}
+  .action-tab.active{opacity:1;border-color:rgba(var(--gold-rgb),0.45);color:var(--gold);background:rgba(var(--gold-rgb),0.05);}
+
+  /* CODE PANELS */
+  .code-panel{display:none;}.code-panel.active{display:block;animation:fi 0.3s ease;}
+  .code-display{background:rgba(0,0,0,0.5);border:1px solid rgba(var(--gold-rgb),0.2);padding:1rem;margin-bottom:0.8rem;text-align:center;}
+  .code-word{font-family:'Cinzel Decorative',cursive;font-size:clamp(1.3rem,4vw,1.8rem);color:var(--gold-light);letter-spacing:0.08em;display:block;margin-bottom:0.2rem;}
+  .code-hint{font-size:0.85rem;font-style:italic;color:var(--bone);opacity:0.45;}
+  .lore-text{font-size:0.92rem;font-style:italic;color:var(--bone);opacity:0.55;line-height:1.7;margin-bottom:1rem;}
+  .code-input-wrap{display:flex;gap:0.4rem;margin-bottom:0.8rem;}
+  .code-input{flex:1;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.08);color:var(--parchment);padding:0.6rem 0.8rem;font-family:'Cinzel Decorative',cursive;font-size:1rem;letter-spacing:0.04em;outline:none;transition:border-color 0.2s;text-transform:lowercase;}
+  .code-input:focus{border-color:rgba(var(--gold-rgb),0.45);}
+  .code-input::placeholder{font-family:'Crimson Pro',serif;font-size:0.9rem;font-style:italic;color:rgba(255,255,255,0.18);letter-spacing:0;}
+
+  /* STATUS */
+  .status-area{min-height:2.5rem;display:flex;align-items:center;justify-content:center;margin-bottom:0.8rem;}
+  .status-msg{font-size:0.9rem;font-style:italic;line-height:1.5;text-align:center;padding:0.5rem 0.8rem;border-left:2px solid;}
+  .status-msg.waiting{color:var(--bone);border-left-color:var(--gold);background:rgba(var(--gold-rgb),0.04);animation:pulse 2s ease-in-out infinite;}
+  .status-msg.connected{color:#7bc47b;border-left-color:#7bc47b;background:rgba(123,196,123,0.04);}
+  .status-msg.error{color:var(--blood-light);border-left-color:var(--blood-light);background:rgba(192,57,43,0.04);}
+  .status-msg.info{color:var(--mist-light);border-left-color:var(--mist);background:rgba(var(--mist-rgb),0.04);}
+  @keyframes pulse{0%,100%{opacity:0.8}50%{opacity:0.4}}
+  .conn-dots{display:inline-flex;gap:3px;vertical-align:middle;margin-left:5px;}
+  .conn-dots span{width:4px;height:4px;border-radius:50%;background:var(--gold);animation:db 1.2s ease-in-out infinite;}
+  .conn-dots span:nth-child(2){animation-delay:0.2s;}.conn-dots span:nth-child(3){animation-delay:0.4s;}
+  @keyframes db{0%,80%,100%{opacity:0.2;transform:scale(0.8)}40%{opacity:1;transform:scale(1)}}
+  .connected-badge{display:inline-flex;align-items:center;gap:0.4rem;font-family:'Cinzel',serif;font-size:0.72rem;letter-spacing:0.18em;text-transform:uppercase;padding:0.35rem 0.8rem;border:1px solid rgba(123,196,123,0.35);color:#7bc47b;background:rgba(123,196,123,0.04);margin-bottom:1.2rem;}
+  .conn-dot-live{width:5px;height:5px;border-radius:50%;background:#7bc47b;animation:glow 2s ease-in-out infinite;}
+  @keyframes glow{0%,100%{box-shadow:0 0 3px #7bc47b}50%{box-shadow:0 0 8px #7bc47b}}
+
+  /* BUTTONS */
+  .btn-primary{font-family:'Cinzel',serif;font-size:0.82rem;letter-spacing:0.18em;text-transform:uppercase;color:#0a0608;background:linear-gradient(135deg,var(--gold) 0%,var(--gold-light) 50%,var(--gold) 100%);border:none;padding:0.8rem 1.8rem;cursor:pointer;clip-path:polygon(5px 0%,calc(100% - 5px) 0%,100% 5px,100% calc(100% - 5px),calc(100% - 5px) 100%,5px 100%,0% calc(100% - 5px),0% 5px);transition:all 0.25s;box-shadow:0 0 18px rgba(var(--gold-rgb),0.2);width:100%;margin-bottom:0.5rem;}
+  .btn-primary:hover:not(:disabled){box-shadow:0 0 30px rgba(var(--gold-rgb),0.45);transform:translateY(-1px);}
+  .btn-primary:disabled{opacity:0.35;cursor:not-allowed;transform:none;}
+  .btn-secondary{font-family:'Cinzel',serif;font-size:0.75rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--bone);background:transparent;border:1px solid rgba(255,255,255,0.1);padding:0.65rem 1.2rem;cursor:pointer;transition:all 0.2s;width:100%;opacity:0.6;margin-bottom:0.4rem;}
+  .btn-secondary:hover{opacity:1;border-color:rgba(255,255,255,0.22);}
+
+  /* CHAR SETUP */
+  .setup-section{margin-bottom:1.2rem;}
+  .setup-field-label{font-family:'Cinzel',serif;font-size:0.6rem;letter-spacing:0.22em;text-transform:uppercase;color:var(--dim);margin-bottom:0.4rem;display:block;}
+  .name-input{width:100%;background:rgba(0,0,0,0.4);border:1px solid var(--border);color:var(--text);padding:0.5rem 0.7rem;font-family:'Crimson Pro',serif;font-size:0.95rem;outline:none;transition:border-color 0.2s;margin-bottom:0.8rem;}
+  .name-input:focus{border-color:rgba(var(--gold-rgb),0.4);}
+  .opt-grid{display:flex;flex-direction:column;gap:0.3rem;margin-bottom:0.6rem;}
+  .opt-btn{text-align:left;padding:0.45rem 0.65rem;font-family:'Crimson Pro',serif;font-size:0.82rem;line-height:1.35;cursor:pointer;border:1px solid var(--border);background:rgba(0,0,0,0.2);color:var(--text);transition:all 0.16s;}
+  .opt-btn .opt-name{font-family:'Cinzel',serif;font-size:0.65rem;letter-spacing:0.1em;display:block;margin-bottom:0.1rem;}
+  .opt-btn .opt-detail{font-size:0.78rem;font-style:italic;color:var(--dim);}
+  .fantasy-side .opt-btn .opt-name{color:var(--gold);}
+  .reality-side .opt-btn .opt-name{color:var(--mist-light);}
+  .fantasy-side .opt-btn.sel{border-color:rgba(var(--gold-rgb),0.55);background:var(--gold-dim);}
+  .reality-side .opt-btn.sel{border-color:rgba(var(--mist-rgb),0.55);background:var(--mist-dim);}
+  .fantasy-side .opt-btn:hover:not(.sel){border-color:rgba(var(--gold-rgb),0.28);}
+  .reality-side .opt-btn:hover:not(.sel){border-color:rgba(var(--mist-rgb),0.28);}
+
+  /* GROQ KEY */
+  .key-notice{background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.06);padding:0.8rem;margin-bottom:1rem;}
+  .key-notice p{font-size:0.88rem;color:var(--bone);opacity:0.6;line-height:1.6;margin-bottom:0.6rem;font-style:italic;}
+  .key-input{width:100%;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.08);color:var(--parchment);padding:0.5rem 0.7rem;font-family:'Crimson Pro',serif;font-size:0.95rem;outline:none;transition:border-color 0.2s;margin-bottom:0.4rem;}
+  .key-input:focus{border-color:rgba(var(--gold-rgb),0.45);}
+  .key-status{font-size:0.82rem;font-style:italic;color:var(--mist-light);}
+
+  /* GAME SCREEN */
+  .game{position:relative;z-index:1;flex:1;display:flex;flex-direction:column;min-height:0;}
+  .g-header{display:flex;align-items:center;justify-content:space-between;padding:0.4rem 0.8rem;border-bottom:1px solid rgba(var(--gold-rgb),0.1);background:rgba(0,0,0,0.6);flex-shrink:0;gap:0.8rem;flex-wrap:wrap;}
+  .g-title{font-family:'Cinzel Decorative',cursive;font-size:clamp(0.7rem,1.4vw,0.9rem);color:var(--gold-light);white-space:nowrap;}
+  .g-turn{font-family:'Cinzel',serif;font-size:clamp(0.55rem,0.9vw,0.68rem);letter-spacing:0.15em;color:var(--dim);text-align:right;}
+  .pool-badge{font-family:'Cinzel',serif;font-size:0.6rem;letter-spacing:0.15em;text-transform:uppercase;padding:0.2rem 0.5rem;border:1px solid rgba(var(--gold-rgb),0.2);color:var(--gold);opacity:0.7;}
+
+  .g-body{display:grid;grid-template-columns:1fr 1.3fr;flex:1;min-height:0;overflow:hidden;}
+  @media(max-width:700px){.g-body{grid-template-columns:1fr;overflow-y:auto;}}
+
+  /* MY DECK */
+  .my-deck{display:flex;flex-direction:column;border-right:1px solid var(--border);overflow:hidden;}
+  .deck-header{padding:0.5rem 0.7rem;border-bottom:1px solid var(--border);flex-shrink:0;}
+  .deck-name-label{font-family:'Cinzel',serif;font-size:0.68rem;letter-spacing:0.22em;text-transform:uppercase;}
+  .deck-char-label{font-size:0.78rem;font-style:italic;color:var(--dim);margin-top:0.1rem;}
+  .fantasy-side .deck-name-label{color:var(--gold);}
+  .reality-side .deck-name-label{color:var(--mist-light);}
+  .deck-body{flex:1;overflow-y:auto;padding:0.6rem;display:flex;flex-direction:column;gap:0.4rem;scrollbar-width:thin;scrollbar-color:rgba(var(--gold-rgb),0.1) transparent;}
+  .deck-section-label{font-family:'Cinzel',serif;font-size:0.58rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--dim);padding-bottom:0.2rem;border-bottom:1px solid var(--border);margin-bottom:0.2rem;}
+  .q-btn{display:block;width:100%;text-align:left;padding:0.45rem 0.6rem;font-family:'Crimson Pro',serif;font-size:0.85rem;line-height:1.4;cursor:pointer;border:1px solid var(--border);background:rgba(0,0,0,0.2);color:var(--text);transition:all 0.18s;margin-bottom:0.25rem;}
+  .fantasy-side .q-btn:hover:not(:disabled){border-color:rgba(var(--gold-rgb),0.38);background:var(--gold-dim);}
+  .reality-side .q-btn:hover:not(:disabled){border-color:rgba(var(--mist-rgb),0.38);background:var(--mist-dim);}
+  .q-btn:disabled{opacity:0.25;cursor:not-allowed;}
+  .q-label{font-family:'Cinzel',serif;font-size:0.55rem;letter-spacing:0.15em;text-transform:uppercase;display:block;margin-bottom:0.15rem;}
+  .fantasy-side .q-label{color:var(--gold);}
+  .reality-side .q-label{color:var(--mist-light);}
+  .a-btn{display:block;width:100%;text-align:left;padding:0.45rem 0.6rem;font-family:'Crimson Pro',serif;font-size:0.85rem;line-height:1.4;font-style:italic;cursor:pointer;border:1px solid var(--border);background:rgba(0,0,0,0.22);color:var(--bone);transition:all 0.18s;margin-bottom:0.25rem;}
+  .fantasy-side .a-btn:hover{border-color:rgba(var(--gold-rgb),0.45);background:var(--gold-dim);color:var(--text);}
+  .reality-side .a-btn:hover{border-color:rgba(var(--mist-rgb),0.45);background:var(--mist-dim);color:var(--text);}
+  .tangent-area{border:1px solid rgba(107,63,160,0.3);background:var(--tangent-dim);padding:0.6rem 0.7rem;margin-top:0.3rem;}
+  .tangent-label{font-family:'Cinzel',serif;font-size:0.58rem;letter-spacing:0.18em;text-transform:uppercase;color:#9b7fd4;margin-bottom:0.35rem;}
+  .tangent-desc{font-size:0.82rem;font-style:italic;color:var(--bone);line-height:1.5;margin-bottom:0.45rem;opacity:0.8;}
+  .tangent-btn{font-family:'Cinzel',serif;font-size:0.62rem;letter-spacing:0.12em;text-transform:uppercase;color:#9b7fd4;background:transparent;border:1px solid rgba(107,63,160,0.35);padding:0.35rem 0.7rem;cursor:pointer;transition:all 0.2s;margin-right:0.35rem;margin-bottom:0.25rem;}
+  .tangent-btn:hover{background:rgba(107,63,160,0.12);}
+  .empty-state{text-align:center;font-style:italic;color:var(--dim);font-size:0.88rem;padding:1.5rem 0.8rem;line-height:1.7;}
+
+  /* CENTER */
+  .center-col{display:flex;flex-direction:column;background:rgba(0,0,0,0.22);overflow:hidden;}
+  .center-header{padding:0.45rem 0.7rem;border-bottom:1px solid var(--border);flex-shrink:0;text-align:center;}
+  .center-label{font-family:'Cinzel',serif;font-size:0.6rem;letter-spacing:0.28em;text-transform:uppercase;color:var(--dim);}
+  .center-scroll{flex:1;overflow-y:auto;padding:0.7rem;display:flex;flex-direction:column;gap:0.6rem;scrollbar-width:thin;scrollbar-color:rgba(var(--gold-rgb),0.1) transparent;}
+  .entry{font-size:0.9rem;line-height:1.65;padding:0.5rem 0.7rem;border-left:2px solid;animation:fi 0.3s ease;}
+  .entry-tag{font-family:'Cinzel',serif;font-size:0.52rem;letter-spacing:0.2em;text-transform:uppercase;display:block;margin-bottom:0.2rem;opacity:0.55;}
+  .entry.asked-reality{border-left-color:var(--mist);background:rgba(var(--mist-rgb),0.04);}
+  .entry.asked-reality .entry-tag{color:var(--mist);}
+  .entry.asked-fantasy{border-left-color:var(--gold);background:var(--gold-dim);}
+  .entry.asked-fantasy .entry-tag{color:var(--gold);}
+  .entry.spoken-reality{border-left-color:rgba(var(--mist-rgb),0.5);background:rgba(0,0,0,0.18);}
+  .entry.spoken-reality .entry-tag{color:var(--mist);}
+  .entry.spoken-fantasy{border-left-color:rgba(var(--gold-rgb),0.5);background:rgba(0,0,0,0.18);}
+  .entry.spoken-fantasy .entry-tag{color:var(--gold);}
+  .entry.tangent-fired{border-left-color:var(--tangent);background:var(--tangent-dim);}
+  .entry.tangent-fired .entry-tag{color:#9b7fd4;}
+  .entry.tangent-monologue{border-left-color:#9b7fd4;background:rgba(107,63,160,0.07);font-style:italic;}
+  .entry.tangent-monologue .entry-tag{color:#9b7fd4;}
+  .entry.system{border-left-color:rgba(255,255,255,0.08);color:var(--dim);font-size:0.8rem;}
+  .thinking-center{text-align:center;font-family:'Cinzel',serif;font-size:0.62rem;letter-spacing:0.28em;color:var(--dim);padding:0.4rem;animation:pulse 1.5s ease-in-out infinite;display:none;flex-shrink:0;}
+  .thinking-center.on{display:block;}
+  .center-footer{padding:0.35rem 0.7rem;border-top:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:0.5rem;}
+  .turn-text{font-family:'Cinzel',serif;font-size:0.6rem;letter-spacing:0.18em;text-transform:uppercase;color:var(--dim);}
+  .reset-btn{font-family:'Cinzel',serif;font-size:0.6rem;letter-spacing:0.12em;color:var(--dim);background:transparent;border:1px solid var(--border);padding:0.25rem 0.6rem;cursor:pointer;transition:all 0.2s;}
+  .reset-btn:hover{color:var(--text);border-color:rgba(255,255,255,0.2);}
+
+  ::-webkit-scrollbar{width:3px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:rgba(var(--gold-rgb),0.12);}
+
+  /* ===== ARTIST CONSOLE: parchment phone ===== */
+  body.theme-artist .my-deck{margin:0.6rem;border:2px solid #2c3a4a;border-radius:20px;background:#efe7d6;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,0.5);}
+  body.theme-artist .my-deck::before{content:'●●●\00a0\00a0\00a0Saintalia Mobile\00a0\00a0\00a09:41';display:block;flex-shrink:0;background:#1c2a3a;color:#9fc0da;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,sans-serif;font-size:0.6rem;letter-spacing:0.06em;padding:0.32rem 0.8rem;text-align:center;}
+  body.theme-artist .deck-header{background:#e3d8c0;border-bottom:1px solid #d3c6a8;}
+  body.theme-artist .deck-name-label{color:#3e5a78;}
+  body.theme-artist .deck-char-label{color:#6f6552;}
+  body.theme-artist .deck-section-label{color:#8a7f68;border-bottom-color:#d3c6a8;}
+  body.theme-artist .q-btn,body.theme-artist .a-btn{font-family:-apple-system,'Segoe UI',Roboto,Helvetica,sans-serif;font-size:0.8rem;background:#faf4e6;border:1px solid #d3c6a8;border-radius:14px;color:#2a2419;}
+  body.theme-artist .a-btn{font-style:normal;color:#4a4334;}
+  body.theme-artist .q-btn:hover:not(:disabled),body.theme-artist .a-btn:hover{border-color:#6e93b8;background:#eef3f8;color:#1f3349;}
+  body.theme-artist .q-label{color:#3e7cb8;}
+  body.theme-artist .my-deck .empty-state{color:#8a7f68;}
+  body.theme-artist .my-deck .tangent-area{background:rgba(107,63,160,0.07);border-radius:12px;}
+  body.theme-artist .my-deck .tangent-desc{color:#5f5470;opacity:1;}
+  body.theme-artist .deck-body{scrollbar-color:rgba(110,147,184,0.3) transparent;}
+  /* their voice in the shared log keeps a hint of the other console */
+  body.theme-artist .entry.asked-fantasy{border-left-color:rgba(255,62,200,0.55);background:rgba(255,62,200,0.05);}
+  body.theme-artist .entry.spoken-fantasy{border-left-color:rgba(255,62,200,0.4);}
+  body.theme-artist .entry.asked-fantasy .entry-tag,body.theme-artist .entry.spoken-fantasy .entry-tag{color:#ff7ddd;}
+
+  /* ===== SAINTALIA CONSOLE: fuchsia hologram ===== */
+  body.theme-fantasy .my-deck{margin:0.6rem;border:1px solid rgba(255,62,200,0.35);border-radius:6px;background:rgba(40,10,60,0.35);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);overflow:hidden;box-shadow:0 0 14px rgba(255,62,200,0.18),inset 0 0 24px rgba(157,77,255,0.06);}
+  body.theme-fantasy .my-deck::before{content:'◢ SAINT//LINK CONSOLE v2.7';display:block;flex-shrink:0;font-family:'Orbitron',sans-serif;font-size:0.55rem;letter-spacing:0.25em;color:#ff7ddd;background:rgba(255,62,200,0.08);border-bottom:1px solid rgba(255,62,200,0.25);padding:0.34rem 0.8rem;text-shadow:0 0 8px rgba(255,62,200,0.6);}
+  body.theme-fantasy .g-title,body.theme-fantasy .lobby-title{font-family:'Orbitron',sans-serif;text-shadow:0 0 18px rgba(255,62,200,0.55);}
+  body.theme-fantasy .deck-name-label,body.theme-fantasy .center-label,body.theme-fantasy .deck-section-label,body.theme-fantasy .q-label,body.theme-fantasy .entry-tag{font-family:'Orbitron',sans-serif;}
+  body.theme-fantasy .q-btn,body.theme-fantasy .a-btn{font-family:'Share Tech Mono',monospace;font-size:0.78rem;font-style:normal;border-radius:3px;background:rgba(13,3,24,0.5);}
+  body.theme-fantasy .q-btn:hover:not(:disabled),body.theme-fantasy .a-btn:hover{box-shadow:0 0 10px rgba(255,62,200,0.25);}
+  body.theme-fantasy .center-col{background:rgba(20,6,39,0.45);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);border-left:1px solid rgba(255,62,200,0.12);}
+  body.theme-fantasy .g-header{background:rgba(13,3,24,0.7);border-bottom-color:rgba(255,62,200,0.25);box-shadow:0 0 14px rgba(255,62,200,0.12);}
+  /* their voice in the shared log keeps a hint of the other console */
+  body.theme-fantasy .entry.asked-reality{border-left-color:rgba(110,147,184,0.55);background:rgba(110,147,184,0.05);}
+  body.theme-fantasy .entry.spoken-reality{border-left-color:rgba(110,147,184,0.4);}
+  body.theme-fantasy .entry.asked-reality .entry-tag,body.theme-fantasy .entry.spoken-reality .entry-tag{color:#9fc0da;font-family:'Orbitron',sans-serif;}
+</style>
+</head>
+<body>
+
+<!-- LOBBY -->
+<div class="lobby" id="lobbyScreen">
+  <div class="lobby-inner">
+    <h1 class="lobby-title">Saintalia</h1>
+    <p class="lobby-sub">Beat 2-B — The 15 Questions</p>
+    <div class="divider"></div>
+
+    <!-- STEP 1: ROLE -->
+    <div class="lobby-step active" id="step-role">
+      <p class="step-label">Step I — Choose Your Side</p>
+      <div class="role-grid">
+        <div class="role-card fantasy" id="card-fantasy" onclick="pickRole('fantasy')">
+          <span class="role-icon">🜏</span>
+          <div class="role-name">Saintalia</div>
+          <div class="role-desc">You stand in the ancient realm. The tower. The hologram. The other world bleeding through.</div>
+        </div>
+        <div class="role-card reality" id="card-reality" onclick="pickRole('reality')">
+          <span class="role-icon">◈</span>
+          <div class="role-name">The Waking World</div>
+          <div class="role-desc">You are the artist. Trapped between the dream and the building that sealed itself.</div>
+        </div>
+      </div>
+      <button class="btn-primary" id="btnRoleNext" onclick="goStep('step-connect')" disabled>Cross the Threshold</button>
+    </div>
+
+    <!-- STEP 2: CONNECT -->
+    <div class="lobby-step" id="step-connect">
+      <p class="step-label">Step II — Find Each Other</p>
+      <div class="action-tabs">
+        <button class="action-tab active" id="tab-create" onclick="switchAction('create')">Open the Veil</button>
+        <button class="action-tab" id="tab-join" onclick="switchAction('join')">Step Through</button>
+      </div>
+      <div class="code-panel active" id="panel-create">
+        <p class="lore-text">You are first through. Send the code to your companion.</p>
+        <div class="status-area" id="createStatusArea"><div class="status-msg info">Weaving your thread...</div></div>
+        <div class="code-display" id="codeDisplay" style="display:none">
+          <span class="code-word" id="roomCodeDisplay">—</span>
+          <span class="code-hint">Send this exactly to your companion.</span>
+        </div>
+        <button class="btn-primary" id="btnWaiting" disabled>Waiting for the Other <span class="conn-dots"><span></span><span></span><span></span></span></button>
+      </div>
+      <div class="code-panel" id="panel-join">
+        <p class="lore-text">Enter the code your companion passed to you.</p>
+        <div class="code-input-wrap">
+          <input class="code-input" id="joinCodeInput" placeholder="enter the veil-code..." maxlength="30" />
+        </div>
+        <div class="status-area" id="joinStatusArea" style="min-height:1.8rem"></div>
+        <button class="btn-primary" id="btnJoin" onclick="joinRoom()">Step Through the Veil</button>
+      </div>
+      <button class="btn-secondary" onclick="goStep('step-role')" style="margin-top:0.4rem">← Change Sides</button>
+    </div>
+
+    <!-- STEP 3: CHAR SETUP -->
+    <div class="lobby-step" id="step-char">
+      <p class="step-label">Step III — Take Shape</p>
+      <div class="connected-badge"><span class="conn-dot-live"></span>Both sides present</div>
+      <div id="charSetupArea"></div>
+      <div class="key-notice">
+        <p>Both players need their own Groq key for AI narration to work. Free at console.groq.com -- no credit card. Your key never leaves this browser.</p>
+        <input class="key-input" type="password" id="groqKeyInput" placeholder="gsk_..." />
+        <div class="key-status" id="keyStatus"></div>
+      </div>
+      <button class="btn-primary" id="btnReady" onclick="sendReady()" disabled>I Am Ready</button>
+    </div>
+  </div>
+</div>
+
+<!-- GAME -->
+<div class="game" id="gameScreen" style="display:none">
+  <div class="g-header">
+    <div class="g-title">Saintalia — The 15 Questions</div>
+    <div class="pool-badge" id="poolBadge">Pool: 15</div>
+    <div class="g-turn" id="gTurnText">Turn 1</div>
+  </div>
+  <div class="g-body">
+    <div class="my-deck" id="myDeck">
+      <div class="deck-header">
+        <div class="deck-name-label" id="deckNameLabel">—</div>
+        <div class="deck-char-label" id="deckCharLabel">—</div>
+      </div>
+      <div class="deck-body" id="deckBody"></div>
+    </div>
+    <div class="center-col">
+      <div class="center-header"><div class="center-label">The Exchange</div></div>
+      <div class="center-scroll" id="centerScroll"><div class="entry system"><span class="entry-tag">System</span><p>The questions have not begun.</p></div></div>
+      <div class="thinking-center" id="thinkingEl">the veil considers...</div>
+      <div class="center-footer">
+        <div class="turn-text" id="turnText">—</div>
+        <button class="reset-btn" onclick="location.reload()">↺ Reset</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// SAINTALIA -- BEAT 2-B: THE 15 QUESTIONS
+// PeerJS two-player version
+// ============================================================
+
+const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
+const GROQ_MODEL = 'llama-3.3-70b-versatile';
+
+const VEIL_WORDS_A = ['ashveil','duskbone','mirethall','crestfall','thornmire','gallowhush','embervane','sablewick','grimfallow','wolvenmere'];
+const VEIL_WORDS_B = ['seven','hollow','sigil','remnant','fracture','threshold','splinter','marrow','cipher','wither'];
+
+// ---- CHAR DATA ----
+const CHAR_DATA = {
+  fantasy: {
+    races: [
+      {id:'centaur',name:'Centaur',lore:'Half-scholar, half-horse. Remembers when the sky was a different color.'},
+      {id:'minotaur',name:'Minotaur',lore:'Keeper of a labyrinth that holds nothing anymore.'},
+      {id:'fallen-dragon',name:'Fallen Dragon',lore:'Wings of ash. Made small. The humiliation is the worst part.'},
+      {id:'basilisk-touched',name:'Basilisk-Touched',lore:'Looked too long into a basilisk\'s eye and survived. Sees too much.'},
+      {id:'cerberus-bonded',name:'Cerberus-Bonded',lore:'Three voices in one skull. They do not always agree.'},
+      {id:'last-human',name:'Last Human',lore:'Should not still be human. Something is changing them at the edges.'}
+    ],
+    jobs: [
+      {id:'warlord',name:'Warlord',desc:'Raw force. Combat. Dominance.'},
+      {id:'hedge-witch',name:'Hedge Witch',desc:'Old magic. Reads the veil.'},
+      {id:'bonekeeper',name:'Bonekeeper',desc:'Senses what has crossed over.'},
+      {id:'wayfinder',name:'Wayfinder',desc:'Never lost. Finds hidden routes.'},
+      {id:'silvertongue',name:'Silvertongue',desc:'Persuasion. Can make a creature pause.'},
+      {id:'ruinwalker',name:'Ruinwalker',desc:'Reads the memory of places.'}
+    ]
+  },
+  reality: {
+    races: [
+      {id:'classically-trained',name:'Classically Trained',lore:'MFA, residencies, gallery shows. Learned the rules so well she forgot why.'},
+      {id:'self-taught',name:'Self-Taught',lore:'Figured it out alone in rooms too small and too cold.'},
+      {id:'former-prodigy',name:'Former Prodigy',lore:'Extraordinary at twelve. Just good by thirty. Haunted for years.'},
+      {id:'late-bloomer',name:'Late Bloomer',lore:'Came to this late. No old habits. Sees the wrongness clearly.'},
+      {id:'commercial-artist',name:'Commercial Artist',lore:'Makes things for money and is good at it. Never pretended otherwise.'},
+      {id:'outsider-artist',name:'Outsider Artist',lore:'Always been told her work was strange. Always known it was true.'}
+    ],
+    jobs: [
+      {id:'photographer',name:'Photographer',desc:'Captures what the eye misses.'},
+      {id:'therapist',name:'Therapist',desc:'Reads emotional residue in a space.'},
+      {id:'forensic-archivist',name:'Forensic Archivist',desc:'Identifies what crossed and when.'},
+      {id:'urban-explorer',name:'Urban Explorer',desc:'Finds shelter in any wrong place.'},
+      {id:'journalist',name:'Journalist',desc:'Written notes cannot be corrupted.'},
+      {id:'archaeologist',name:'Archaeologist',desc:'Uncovers buried truths.'}
+    ]
+  }
+};
+
+// ---- QUESTIONS ----
+const QUESTIONS = [
+  {id:'origin',label:'Origin',text:'What made your world the way it is now?',
+    a:{seed:'A slow rot. Something that should have been stopped, but everyone pretended it wasn\'t happening.',tangent:'systemic_rot'},
+    b:{seed:'Anger. Whatever broke their world, they take it personally. Their voice changes when they describe it.',tangent:'systemic_rot'}},
+  {id:'power',label:'Power',text:'Who decides what matters in your world?',
+    a:{seed:'People who don\'t live with the consequences of their decisions. Bitter specificity in how they describe the distance.',tangent:'systemic_rot'},
+    b:{seed:'They don\'t know. The real power is invisible to them and that frightens them more than they want to say.',tangent:'systemic_rot'}},
+  {id:'safety',label:'Safety',text:'What keeps you alive day to day?',
+    a:{seed:'Things that could disappear tomorrow. Safety that is conditional and they\'ve always known it.',tangent:'conditional_a'},
+    b:{seed:'They deflect with humor. The question hits something they won\'t examine directly.',tangent:'conditional_b'}},
+  {id:'fear',label:'Fear',text:'What threatens your world most?',
+    a:{seed:'Something already inside, growing. Described like a cancer that\'s been ignored too long.',tangent:'systemic_rot'},
+    b:{seed:'Themselves. Their world\'s biggest threat is people like them making the wrong choices.',tangent:'self_threat_b'}},
+  {id:'truth',label:'Truth',text:'How do you know what\'s real?',
+    a:{seed:'They don\'t anymore. Something fundamental about truth has broken and they\'re lost without it.',tangent:'broken_ep_a'},
+    b:{seed:'Pain. The only reliable indicator of reality is when something hurts enough to matter.',tangent:'broken_ep_b'}},
+  {id:'belonging',label:'Belonging',text:'Where do you fit in your world?',
+    a:{seed:'Nowhere they\'re supposed to be. Ended up outside their intended place and can\'t get back.',tangent:'conditional_a'},
+    b:{seed:'They belong to the people who need them, even when those people can\'t reciprocate.',tangent:'connection'}},
+  {id:'change',label:'Change',text:'What in your world refuses to stay the same?',
+    a:{seed:'The things they need to stay stable. What should be permanent keeps shifting underfoot.',tangent:'conditional_a'},
+    b:{seed:'They\'re the thing that won\'t stay the same and they don\'t know if that\'s good or destructive.',tangent:'self_threat_b'}},
+  {id:'responsibility',label:'Responsibility',text:'What do you owe to others?',
+    a:{seed:'More than they can give. A debt impossible to repay but that won\'t release them.',tangent:'conditional_a'},
+    b:{seed:'To not become what hurt them. Their responsibility is breaking a cycle they\'re terrified of continuing.',tangent:'connection'}},
+  {id:'guilt',label:'Guilt',text:'What have you failed to protect?',
+    a:{seed:'Someone who trusted them completely. The betrayal wasn\'t malicious and that makes it worse.',tangent:'self_threat_a'},
+    b:{seed:'They go quiet for too long, then change the subject. The failure is too total to name.',tangent:'grief_b'}},
+  {id:'hope',label:'Hope',text:'What keeps you going when things get dark?',
+    a:{seed:'Spite. Still here because giving up would let something win that doesn\'t deserve to.',tangent:'grief_a'},
+    b:{seed:'They don\'t know anymore. Hope has become a habit rather than a feeling.',tangent:'grief_b'}},
+  {id:'loss',label:'Loss',text:'What has your world already lost that you can\'t get back?',
+    a:{seed:'Something systemic. A whole category of thing gone -- a species, a practice, a way of life.',tangent:'grief_a'},
+    b:{seed:'Something personal. The systemic loss lands through one specific thing or person they can name.',tangent:'grief_b'}},
+  {id:'veil',label:'The Veil',text:'Before the dream, did you have any concept of something like it existing?',
+    a:{seed:'Yes, but it was myth or folklore. Their world had a name for something like it that was never taken seriously.',tangent:'broken_ep_a'},
+    b:{seed:'They had a feeling. No cultural framework, just a persistent personal sense that the world had a seam somewhere.',tangent:'broken_ep_b'}},
+  {id:'entity',label:'The Entity',text:'Have you encountered anything that felt like it before, in your world?',
+    a:{seed:'Yes. Something specific in their world\'s history or their own experience maps onto what they saw.',tangent:'broken_ep_a'},
+    b:{seed:'They don\'t answer directly. They deflect in a way that suggests yes but they won\'t say it.',tangent:'broken_ep_b'}},
+  {id:'want',label:'What You Want',text:'If this ends, what does good look like to you?',
+    a:{seed:'Something they can\'t have anymore. Good is already past tense for them.',tangent:'grief_a'},
+    b:{seed:'Something for someone else. Good doesn\'t include themselves or they\'ve left themselves out entirely.',tangent:'grief_b'}},
+  {id:'connection',label:'The Connection',text:'Do you think this was an accident?',
+    a:{seed:'No, and they have a theory. They\'ve been thinking about why them specifically.',tangent:'connection'},
+    b:{seed:'They hope it was. The alternative is too heavy to hold.',tangent:'connection'}}
+];
+
+const NEUTRAL_SEEDS = {
+  origin:['They pause a long time before answering.','The question goes somewhere they\'ve been avoiding.'],
+  power:['Power isn\'t something they think about directly.','They give the safe answer and then go quiet.'],
+  safety:['They list things quickly, like they\'ve rehearsed this.','They laugh a little. It doesn\'t land well.'],
+  fear:['Fear has a lot of addresses for them.','They name something small. It isn\'t the real answer.'],
+  truth:['They used to know. They\'re less sure now.','They answer the question they wish had been asked instead.'],
+  belonging:['Belonging is the word they flinch at.','They\'ve stopped asking that question of themselves.'],
+  change:['Change happens to them more than they happen to it.','They describe it like weather. Impersonal. Uncontrollable.'],
+  responsibility:['They recite this one. They\'ve thought about it too much.','They reframe the question without meaning to.'],
+  guilt:['They take the out. They say: nothing comes to mind.','They answer about something small and true.'],
+  hope:['They give an answer. It doesn\'t sound like hope.','They change the subject very smoothly.'],
+  loss:['They describe something abstract. They keep it that way deliberately.','They start to answer and then don\'t.'],
+  veil:['The concept doesn\'t have a word in their vocabulary. They find one.','They had a word but never said it out loud before now.'],
+  entity:['They answer the question they thought was being asked instead.','They say no. Their voice does something on the no.'],
+  want:['They describe something achievable. It isn\'t what they want.','They turn it into a question back.'],
+  connection:['They don\'t answer right away. The silence is its own answer.','They say they haven\'t decided yet. It sounds true.']
+};
+
+const TANGENTS = {
+  broken_ep_a:{name:'Broken Epistemology A',
+    reality:'Ancient art folklore she investigated with genuine excitement. The trail dead-ended in a way that felt wrong, not just incomplete. Something tied to her work. A cosmically blocked thread she never finished pulling.',
+    fantasy:'A scroll about the vast nature of the universe. Sought it out deliberately. Read it once. It sat in them. Now they are standing inside it.'},
+  broken_ep_b:{name:'Broken Epistemology B',
+    reality:'A location or surface mid-creation where the art felt like it was responding to her rather than the other way around. No language for it that didn\'t sound like a breakdown. Never told anyone.',
+    fantasy:'Places in Saintalia avoided without explanation. Not dangerous by any known measure. Wrong in a frequency they could feel but not name. Stopped mentioning it because no one else seemed to feel it.'},
+  conditional_a:{name:'Conditional Survival A',
+    reality:'The commission as total financial load-bearing structure. One job, one building, one wall. Too much weight on a single contract. Knew it. Took it anyway. Now trapped inside the thing keeping her alive.',
+    fantasy:'The terminal as sole infrastructure. Everything runs through technology never built for this purpose. No backup. No alternative. Knew it the whole time. Kept going anyway.'},
+  conditional_b:{name:'Conditional Survival B',
+    reality:'The colleague she was trying to reach when this started. Survival structured around being reliable for someone who doesn\'t know how much she holds. The wrong number was her trying to be that person one more time.',
+    fantasy:'Self-appointed witness to the creatures of Saintalia. Not needed, not asked. The only thing that makes them feel like they belong in their own world. Responsibility entirely self-assigned.'},
+  grief_a:{name:'Grief Topology A',
+    reality:'A tradition of mural work with no remaining market. One of the last practitioners of something the world stopped needing before she finished learning it. The spite is quiet, professional, and has been running underneath everything for years.',
+    fantasy:'A species that didn\'t die -- dissolved. Biology predicated on the veil boundary existing. Tyvian watched it happen over years with no framework for a creature dying of a metaphysical condition. The spite is directed at whatever allowed the failing.'},
+  grief_b:{name:'Grief Topology B',
+    reality:'A child lost to a custody arrangement she initiated because she knew she couldn\'t be what was needed. The child is alive, healthy, well raised. Sasha signed the papers knowingly. The knowing made it worse. Everything she has made since is for someone who will probably never see it.',
+    fantasy:'A creature shed during a dangerous period because survival required it. It didn\'t die immediately. It died slowly looking for them. Tyvian went back later and followed the trail far enough to understand the ending. Has never decided if going back was courage or cruelty.'},
+  self_threat_a:{name:'Self as Threat A',
+    reality:'A collaborator burned through absence not malice. The collaborator was gracious. That\'s the part she can\'t put down. A clean betrayal would have been easier to carry.',
+    fantasy:'A negotiation that went wrong traced directly to a decision they made in the room. They replay the moment of certainty more than the moment of consequence. That\'s where the real failure lives.'},
+  self_threat_b:{name:'Self as Threat B',
+    reality:'A period she doesn\'t date precisely. Choices she hasn\'t repeated but hasn\'t fully accounted for. Not crimes. Nothing with a clean name. The commission was partly about proving that period is over. She is not certain it is over.',
+    fantasy:'A capability they have that they don\'t use because of what using it felt like the one time they did. Not the consequence -- the feeling during. The capability hasn\'t diminished. They check sometimes.'},
+  systemic_rot:{name:'Systemic Rot',
+    reality:'The corporate capture of what gets funded and called important. Watched it happen over her entire career. Takes commissions like this one because there is nothing else. The anger is old, specific, and has excellent aim.',
+    fantasy:'The council structures of Saintalia. Governance built for a world that no longer exists. The veil showing symptoms longer than official record acknowledges. The rot was not malicious. It was institutional.'},
+  connection:{name:'The Connection Itself',
+    reality:'Has been the wrong number before -- figuratively. Built entire relationships out of being the one who picked up. No framework for being chosen by accident. This is the first time the accident feels like it might have been the point.',
+    fantasy:'Two theories. First: the entity engineered this and they are already inside a trap. Second, worse: the veil reached through its own dying body to find the two most useless possible people, and this is what hope looks like when it\'s completely out of options.'}
+};
+
+// ---- SESSION STATE ----
+const S = {
+  role: null, peer: null, conn: null, roomCode: null,
+  groqKey: '', action: 'create', connected: false,
+  myChar: { name:'', race:null, job:null },
+  otherChar: null, myReady: false, otherReady: false,
+  isAsker: false
+};
+
+const G = {
+  usedIds: [], questionsAsked: 0, totalTurns: 10,
+  currentAsker: 'reality', currentQuestion: null, waitingForAI: false
+};
+
+// ---- LOBBY ----
+function pickRole(role) {
+  S.role = role;
+  document.body.classList.remove('theme-fantasy','theme-artist');
+  document.body.classList.add(role==='fantasy' ? 'theme-fantasy' : 'theme-artist');
+  document.getElementById('card-fantasy').classList.toggle('sel', role==='fantasy');
+  document.getElementById('card-reality').classList.toggle('sel', role==='reality');
+  document.getElementById('btnRoleNext').disabled = false;
+}
+
+function goStep(stepId) {
+  document.querySelectorAll('.lobby-step').forEach(s=>s.classList.remove('active'));
+  document.getElementById(stepId).classList.add('active');
+  if (stepId==='step-connect') initPeerWithCode(generateRoomCode());
+  if (stepId==='step-char') buildCharSetup();
+}
+
+function switchAction(action) {
+  S.action = action;
+  document.getElementById('tab-create').classList.toggle('active', action==='create');
+  document.getElementById('tab-join').classList.toggle('active', action==='join');
+  document.getElementById('panel-create').classList.toggle('active', action==='create');
+  document.getElementById('panel-join').classList.toggle('active', action==='join');
+}
+
+function generateRoomCode() {
+  return VEIL_WORDS_A[Math.floor(Math.random()*VEIL_WORDS_A.length)]+'-'+VEIL_WORDS_B[Math.floor(Math.random()*VEIL_WORDS_B.length)];
+}
+
+function initPeerWithCode(code) {
+  if (S.peer) { S.peer.destroy(); S.peer = null; }
+  setCreateStatus('Weaving your thread into the veil...','waiting');
+  const peerId = 'saintalia-15q-' + code.replace(/[^a-z0-9-]/g,'');
+  S.peer = new Peer(peerId, {host:'0.peerjs.com',port:443,secure:true,path:'/',debug:0,config:{iceServers:[{urls:'stun:stun.l.google.com:19302'}]}});
+  S.peer.on('open', (id) => {
+    S.roomCode = code;
+    document.getElementById('roomCodeDisplay').textContent = code;
+    document.getElementById('codeDisplay').style.display = 'block';
+    setCreateStatus('The veil is open. Waiting for the other side...','waiting');
+  });
+  S.peer.on('connection', (conn) => { S.conn = conn; setupConn(conn,'host'); });
+  S.peer.on('error', (err) => {
+    if (err.type==='unavailable-id') { setTimeout(()=>initPeerWithCode(generateRoomCode()),400); return; }
+    setCreateStatus('The veil resists: '+err.message,'error');
+    S.peer = null;
+  });
+}
+
+function joinRoom() {
+  const raw = document.getElementById('joinCodeInput').value.trim().toLowerCase();
+  if (!raw) { setJoinStatus('Enter the code your companion gave you.','error'); return; }
+  const targetId = 'saintalia-15q-' + raw.replace(/[^a-z0-9-]/g,'');
+  setJoinStatus('Reaching through the veil...','waiting');
+  document.getElementById('btnJoin').disabled = true;
+  if (S.peer) { S.peer.destroy(); S.peer = null; }
+  S.peer = new Peer({host:'0.peerjs.com',port:443,secure:true,path:'/',debug:0,config:{iceServers:[{urls:'stun:stun.l.google.com:19302'}]}});
+  S.peer.on('open', () => {
+    const conn = S.peer.connect(targetId, {reliable:true});
+    S.conn = conn;
+    setupConn(conn,'joiner');
+  });
+  S.peer.on('error', (err) => {
+    setJoinStatus('Could not find the veil: '+err.message,'error');
+    document.getElementById('btnJoin').disabled = false;
+    S.peer = null;
+  });
+}
+
+function setupConn(conn, role) {
+  conn.on('open', () => {
+    S.connected = true;
+    conn.send({type:'handshake', role:S.role});
+  });
+  conn.on('data', handleMsg);
+  conn.on('close', () => { S.connected = false; });
+  conn.on('error', (err) => { console.warn('conn error', err); });
+}
+
+function handleMsg(data) {
+  if (data.type==='handshake') {
+    S.connected = true;
+    if (S.action==='create') {
+      setCreateStatus('Connected. Both sides present.','connected');
+      document.getElementById('btnWaiting').textContent='Connected -- proceeding...';
+    } else {
+      setJoinStatus('The veil holds. You are through.','connected');
+    }
+    setTimeout(()=>goStep('step-char'), 1000);
+  }
+  if (data.type==='char-ready') {
+    S.otherChar = data.char;
+    S.otherReady = true;
+    checkBothReady();
+  }
+  if (data.type==='game-start') {
+    G.currentAsker = data.firstAsker;
+    launchGame();
+  }
+  if (data.type==='question-asked') {
+    G.currentQuestion = data.question;
+    G.usedIds.push(data.question.id);
+    G.questionsAsked++;
+    addEntry(`"${data.question.text}"`, `asked-${data.asker}`, nameOf(data.asker)+' asks '+nameOf(data.asker==='reality'?'fantasy':'reality'));
+    updatePool();
+    if (data.answerer === S.role) {
+      renderAnswerOptions(data.question);
+      updateTurnText(`Turn ${G.questionsAsked} of ${G.totalTurns} -- ${nameOf(S.role)} answers`);
+    } else {
+      showDeckWaiting();
+      updateTurnText(`Turn ${G.questionsAsked} of ${G.totalTurns} -- ${nameOf(data.answerer)} answers`);
+    }
+  }
+  if (data.type==='answer-spoken') {
+    addEntry(data.text, `spoken-${data.answerer}`, nameOf(data.answerer)+' speaks');
+  }
+  if (data.type==='tangent-fired') {
+    addEntry(`A thread opens: ${data.tangentName}`, 'tangent-fired', 'The veil catches something');
+    if (data.asker === S.role) {
+      renderTangentChoice(data.tangentKey, data.question);
+    } else {
+      showDeckWaiting();
+    }
+  }
+  if (data.type==='tangent-spoken') {
+    addEntry(data.text, 'tangent-monologue', nameOf(data.speaker)+' -- the thread');
+  }
+  if (data.type==='tangent-skipped') {
+    addEntry('The thread surfaces and is left alone. The questions continue.','system');
+    advanceTurn();
+  }
+  if (data.type==='advance-turn') {
+    advanceTurn();
+  }
+  if (data.type==='end') {
+    endExchange();
+  }
+}
+
+// ---- CHAR SETUP ----
+function buildCharSetup() {
+  const isF = S.role === 'fantasy';
+  const area = document.getElementById('charSetupArea');
+  const sideClass = isF ? 'fantasy-side' : 'reality-side';
+  area.innerHTML = `
+    <div class="${sideClass} setup-section">
+      <span class="setup-field-label">${isF ? 'Your Name' : 'Your Name'}</span>
+      <input class="name-input" id="charName" placeholder="leave blank for nameless" maxlength="40" />
+      <span class="setup-field-label">${isF ? 'Your Blood' : 'Your Background'}</span>
+      <div class="opt-grid" id="raceGrid"></div>
+      <span class="setup-field-label">Your Role</span>
+      <div class="opt-grid" id="jobGrid"></div>
+    </div>
+  `;
+  const raceGrid = document.getElementById('raceGrid');
+  const jobGrid = document.getElementById('jobGrid');
+  CHAR_DATA[S.role].races.forEach(r => {
+    const b = document.createElement('button');
+    b.className='opt-btn';
+    b.innerHTML=`<span class="opt-name">${r.name}</span><span class="opt-detail">${r.lore}</span>`;
+    b.onclick=()=>selectOpt('race',r,b,raceGrid);
+    raceGrid.appendChild(b);
+  });
+  CHAR_DATA[S.role].jobs.forEach(j => {
+    const b = document.createElement('button');
+    b.className='opt-btn';
+    b.innerHTML=`<span class="opt-name">${j.name}</span><span class="opt-detail">${j.desc}</span>`;
+    b.onclick=()=>selectOpt('job',j,b,jobGrid);
+    jobGrid.appendChild(b);
+  });
+}
+
+function selectOpt(kind, val, btn, grid) {
+  grid.querySelectorAll('.opt-btn').forEach(b=>b.classList.remove('sel'));
+  btn.classList.add('sel');
+  S.myChar[kind] = val;
+  document.getElementById('btnReady').disabled = !(S.myChar.race && S.myChar.job);
+}
+
+function sendReady() {
+  S.myChar.name = document.getElementById('charName').value.trim();
+  S.groqKey = document.getElementById('groqKeyInput').value.trim();
+  S.myReady = true;
+  if (S.conn && S.conn.open) {
+    S.conn.send({type:'char-ready', char:S.myChar});
+  }
+  document.getElementById('btnReady').textContent = 'Waiting for companion...';
+  document.getElementById('btnReady').disabled = true;
+  checkBothReady();
+}
+
+function checkBothReady() {
+  if (!S.myReady || !S.otherReady) return;
+  // Host (create side) decides who goes first and broadcasts
+  if (S.action==='create') {
+    const firstAsker = Math.random() < 0.5 ? 'reality' : 'fantasy';
+    G.currentAsker = firstAsker;
+    if (S.conn && S.conn.open) {
+      S.conn.send({type:'game-start', firstAsker});
+    }
+    launchGame();
+  }
+}
+
+// ---- GAME ----
+function launchGame() {
+  document.getElementById('lobbyScreen').style.display = 'none';
+  document.getElementById('gameScreen').style.display = 'flex';
+  const isF = S.role==='fantasy';
+  document.getElementById('myDeck').className = 'my-deck '+(isF?'fantasy-side':'reality-side');
+  document.getElementById('deckNameLabel').textContent = nameOf(S.role);
+  document.getElementById('deckCharLabel').textContent = charLabel(S.role);
+  updatePool();
+  updateTurnText(`Turn 1 of ${G.totalTurns}`);
+  addEntry('The questions begin. The veil is listening.','system');
+  renderMyTurn();
+}
+
+function renderMyTurn() {
+  const isMyTurn = G.currentAsker === S.role;
+  S.isAsker = isMyTurn;
+  if (isMyTurn) {
+    renderAsk();
+    updateTurnText(`Turn ${G.questionsAsked+1} of ${G.totalTurns} -- ${nameOf(S.role)} asks`);
+  } else {
+    showDeckWaiting();
+    updateTurnText(`Turn ${G.questionsAsked+1} of ${G.totalTurns} -- ${nameOf(G.currentAsker)} asks`);
+  }
+}
+
+function renderAsk() {
+  const body = document.getElementById('deckBody');
+  body.innerHTML='';
+  const lbl=document.createElement('div'); lbl.className='deck-section-label';
+  lbl.textContent='Choose a question to ask '+nameOf(S.role==='reality'?'fantasy':'reality');
+  body.appendChild(lbl);
+  drawBank(4).forEach(q=>{
+    const btn=document.createElement('button'); btn.className='q-btn';
+    btn.innerHTML=`<span class="q-label">${q.label}</span>${q.text}`;
+    btn.onclick=()=>broadcastQuestion(q);
+    body.appendChild(btn);
+  });
+}
+
+function renderAnswerOptions(question) {
+  const body = document.getElementById('deckBody');
+  body.innerHTML='';
+  const lbl=document.createElement('div'); lbl.className='deck-section-label';
+  lbl.textContent='Choose your answer';
+  body.appendChild(lbl);
+  const neutrals = NEUTRAL_SEEDS[question.id] || ['They\'re still working out how to answer that.','Not a question they\'ve let themselves think about directly.'];
+  const opts = shuffle([
+    {seed:question.a.seed, isTangent:true, tangentKey:question.a.tangent},
+    {seed:question.b.seed, isTangent:true, tangentKey:question.b.tangent},
+    {seed:neutrals[0], isTangent:false},
+    {seed:neutrals[1], isTangent:false}
+  ]);
+  opts.forEach(opt=>{
+    const btn=document.createElement('button'); btn.className='a-btn';
+    btn.textContent=opt.seed;
+    btn.onclick=()=>selectAnswer(opt, question);
+    body.appendChild(btn);
+  });
+}
+
+function renderTangentChoice(tangentKey, question) {
+  const body = document.getElementById('deckBody');
+  body.innerHTML='';
+  const tangent = TANGENTS[tangentKey];
+  if (!tangent) { advanceTurn(); return; }
+  const tArea=document.createElement('div'); tArea.className='tangent-area';
+  const myTerritoryText = S.role === 'reality' ? tangent.reality : tangent.fantasy;
+  tArea.innerHTML=`<div class="tangent-label">${tangent.name} -- pull the thread?</div><div class="tangent-desc">${myTerritoryText}</div>`;
+  const pull=document.createElement('button'); pull.className='tangent-btn'; pull.textContent='Pull the thread';
+  pull.onclick=async()=>{
+    tArea.remove(); showDeckWaiting();
+    await speakTangent(S.role, tangent);
+    if (S.conn && S.conn.open) S.conn.send({type:'advance-turn'});
+    advanceTurn();
+  };
+  const skip=document.createElement('button'); skip.className='tangent-btn'; skip.textContent='Let it pass';
+  skip.onclick=()=>{
+    tArea.remove();
+    addEntry('The thread surfaces and is left alone. The questions continue.','system');
+    if (S.conn && S.conn.open) S.conn.send({type:'tangent-skipped'});
+    advanceTurn();
+  };
+  tArea.appendChild(pull); tArea.appendChild(skip);
+  body.appendChild(tArea);
+}
+
+function showDeckWaiting() {
+  const body = document.getElementById('deckBody');
+  body.innerHTML='<div class="empty-state">Waiting for the other side...</div>';
+}
+
+function broadcastQuestion(question) {
+  G.usedIds.push(question.id);
+  G.questionsAsked++;
+  G.currentQuestion = question;
+  const answerer = S.role==='reality'?'fantasy':'reality';
+  const payload = {type:'question-asked', question, asker:S.role, answerer};
+  if (S.conn && S.conn.open) S.conn.send(payload);
+  addEntry(`"${question.text}"`, `asked-${S.role}`, nameOf(S.role)+' asks '+nameOf(answerer));
+  updatePool();
+  showDeckWaiting();
+  updateTurnText(`Turn ${G.questionsAsked} of ${G.totalTurns} -- ${nameOf(answerer)} answers`);
+}
+
+async function selectAnswer(option, question) {
+  showDeckWaiting();
+  const text = await speakAnswer(S.role, question, option.seed);
+  if (option.isTangent && TANGENTS[option.tangentKey]) {
+    const tangent = TANGENTS[option.tangentKey];
+    addEntry(`A thread opens: ${tangent.name}`, 'tangent-fired', 'The veil catches something');
+    if (S.conn && S.conn.open) {
+      S.conn.send({type:'tangent-fired', tangentKey:option.tangentKey, tangentName:tangent.name, question, asker:S.role==='reality'?'fantasy':'reality'});
+    }
+    // Asker side will render choice on their end via handleMsg
+    // This side waits
+    showDeckWaiting();
+    return;
+  }
+  if (S.conn && S.conn.open) S.conn.send({type:'advance-turn'});
+  advanceTurn();
+}
+
+async function speakAnswer(answerer, question, seed) {
+  const prompt = `You are voicing a character in Saintalia, a dark horror-fantasy two-player story game. Two strangers are asking each other deep questions across a tearing veil between worlds.
+
+The character answering:
+${charDescriptor(answerer)}
+
+They were just asked: "${question.text}"
+
+The emotional direction of their answer (a seed -- do NOT repeat it verbatim, expand it into their own voice): "${seed}"
+
+Write their spoken answer in FIRST PERSON, as the character speaking aloud. 2 to 4 sentences. Let their background and role color the voice, imagery, and reference points, but never state the race or role name outright -- let it show. Dark, literary, grounded, no melodrama. Spoken words only. No quotation marks, no narration tags, no stage directions.`;
+  const out = await callGroq(prompt);
+  const text = out || seed;
+  addEntry(text, `spoken-${answerer}`, nameOf(answerer)+' speaks');
+  if (S.conn && S.conn.open) S.conn.send({type:'answer-spoken', text, answerer});
+  return text;
+}
+
+async function speakTangent(speaker, tangent) {
+  const guardrail = speaker==='reality' ? tangent.reality : tangent.fantasy;
+  const prompt = `You are voicing a character in Saintalia, a dark horror-fantasy two-player story game. A deep question across the veil has cracked something open, and this character is now telling the other player something they don't usually say.
+
+The character speaking:
+${charDescriptor(speaker)}
+
+The buried thread they are now giving voice to (a guardrail -- expand it into their own words, do NOT quote it): "${guardrail}"
+
+Write a short FIRST-PERSON monologue, 4 to 6 sentences, as the character speaking aloud to the other person across the veil. This is the tangent -- a confession, a memory surfacing, something that veers off the original question. Let their background and role shape the imagery and how they talk, but never state the race or role name outright. Dark, literary, raw, no melodrama. Spoken words only. No quotation marks, no narration tags, no stage directions.`;
+  const out = await callGroq(prompt);
+  const text = out || guardrail;
+  addEntry(text, 'tangent-monologue', nameOf(speaker)+' -- the thread');
+  if (S.conn && S.conn.open) S.conn.send({type:'tangent-spoken', text, speaker});
+}
+
+function advanceTurn() {
+  if (G.questionsAsked >= G.totalTurns) { endExchange(); return; }
+  const next = G.currentAsker==='reality'?'fantasy':'reality';
+  G.currentAsker = next;
+  addEntry('--','system');
+  renderMyTurn();
+}
+
+function endExchange() {
+  updateTurnText('The exchange is complete.');
+  addEntry('Ten questions. The veil has heard enough. What comes next is up to them.','system');
+  document.getElementById('deckBody').innerHTML='<div class="empty-state">The exchange is complete.</div>';
+}
+
+// ---- GROQ ----
+async function callGroq(prompt) {
+  const key = S.groqKey;
+  if (!key) {
+    console.warn('No Groq key set -- falling back to seed text. Enter your gsk_ key in setup.');
+    return null;
+  }
+  try {
+    setThinking(true);
+    const resp = await fetch(GROQ_URL, {
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
+      body: JSON.stringify({model:GROQ_MODEL, max_tokens:400, temperature:0.88,
+        messages:[{role:'user',content:prompt}]})
+    });
+    const data = await resp.json();
+    setThinking(false);
+    if (data.error) { console.warn('Groq error:', data.error.message); return null; }
+    return data.choices[0].message.content.trim() || null;
+  } catch(e) { console.warn('Groq failed:', e); setThinking(false); return null; }
+}
+
+// ---- HELPERS ----
+function nameOf(side) {
+  if (side===S.role) return S.myChar.name || (side==='fantasy'?'P2':'The Artist');
+  if (S.otherChar) return S.otherChar.name || (side==='fantasy'?'P2':'The Artist');
+  return side==='fantasy'?'P2':'The Artist';
+}
+function charLabel(side) {
+  const c = side===S.role ? S.myChar : S.otherChar;
+  if (!c) return '—';
+  return (c.name?c.name+' -- ':'')+( c.race?c.race.name:'')+' '+(c.job?c.job.name:'');
+}
+function charDescriptor(side) {
+  const c = side===S.role ? S.myChar : S.otherChar;
+  if (!c) return 'unknown character';
+  const world = side==='fantasy' ? 'in the dying fantasy realm of Saintalia, a world of monsters and old powers' : 'an artist in the modern waking world';
+  return `${c.name||(side==='fantasy'?'P2':'the artist')}, ${world}. Background: ${c.race?c.race.name:''} -- ${c.race?c.race.lore:''} Role: ${c.job?c.job.name:''} -- ${c.job?c.job.desc:''}`;
+}
+function shuffle(arr) { const a=[...arr]; for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
+function drawBank(size) { const av=QUESTIONS.filter(q=>!G.usedIds.includes(q.id)); return shuffle(av).slice(0,Math.min(size,av.length)); }
+function updatePool() { const r=QUESTIONS.filter(q=>!G.usedIds.includes(q.id)).length; document.getElementById('poolBadge').textContent='Pool: '+r; }
+function updateTurnText(t) { document.getElementById('turnText').textContent=t; document.getElementById('gTurnText').textContent=t; }
+function setThinking(on) { document.getElementById('thinkingEl').classList.toggle('on',on); }
+function addEntry(text, type, tag) {
+  const scroll=document.getElementById('centerScroll');
+  const empty=scroll.querySelector('.entry.system p');
+  if(empty && empty.textContent==='The questions have not begun.') scroll.innerHTML='';
+  const el=document.createElement('div'); el.className='entry '+type;
+  if(tag){ const t=document.createElement('span'); t.className='entry-tag'; t.textContent=tag; el.appendChild(t); }
+  const p=document.createElement('p'); p.textContent=text; el.appendChild(p);
+  scroll.insertBefore(el, scroll.firstChild);
+  scroll.scrollTop=0;
+}
+function setCreateStatus(msg,type) { document.getElementById('createStatusArea').innerHTML=`<div class="status-msg ${type}">${msg}</div>`; }
+function setJoinStatus(msg,type) { document.getElementById('joinStatusArea').innerHTML=`<div class="status-msg ${type}">${msg}</div>`; }
+</script>
+</body>
+</html>

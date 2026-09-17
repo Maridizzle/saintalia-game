@@ -1,0 +1,1242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, minimum-scale=1.0, maximum-scale=5.0">
+<title>Saintalia -- Lockdown (Two Player)</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&family=Cinzel:wght@400;600&family=Crimson+Pro:ital,wght@0,400;0,500;1,400&family=Orbitron:wght@400;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<style>
+  :root {
+    --ink: #0a0608;
+    --parchment: #f5efe0;
+    --bone: #d4c5a9;
+    --gold: #c9a84c;
+    --gold-light: #e8c96a;
+    --blood: #8b1a1a;
+    --blood-light: #c0392b;
+    --mist: #7a9ea8;
+    --mist-light: #a8c4cc;
+    --deep-purple: #1a0e2e;
+    --shadow-purple: #2d1b4e;
+    --green: rgba(29,158,117,0.9);
+    --green-dim: rgba(29,158,117,0.08);
+    --gold-rgb: 201,168,76;
+    --mist-rgb: 122,158,168;
+    --acc: #c9a84c; --acc-rgb: 201,168,76;
+    --other-acc: #7a9ea8; --other-acc-rgb: 122,158,168;
+  }
+
+  /* ===== PER-PLAYER CONSOLE THEMES ===== */
+  /* Artist — slate blue, parchment, cell-phone console */
+  body.theme-artist {
+    --ink: #0e1622;
+    --parchment: #f3ecdc;
+    --gold: #6e93b8; --gold-light: #9fc0da; --gold-rgb: 110,147,184;
+    --mist: #6e93b8; --mist-light: #9fc0da; --mist-rgb: 110,147,184;
+    --deep-purple: #101b29; --shadow-purple: #1c2a3a;
+    --acc: #6e93b8; --acc-rgb: 110,147,184;
+    --other-acc: #ff3ec8; --other-acc-rgb: 255,62,200;
+    background: #0e1622;
+  }
+  body.theme-artist::before {
+    background:
+      radial-gradient(ellipse at 25% 30%, rgba(110,147,184,0.16) 0%, transparent 60%),
+      radial-gradient(ellipse at 75% 80%, rgba(28,42,58,0.5) 0%, transparent 60%);
+  }
+  /* P2 / Saintalia — fuchsia / deep purple holographic console */
+  body.theme-fantasy {
+    --ink: #0d0318;
+    --parchment: #f4e9ff;
+    --gold: #ff3ec8; --gold-light: #ff7ddd; --gold-rgb: 255,62,200;
+    --mist: #9d4dff; --mist-light: #c39bff; --mist-rgb: 157,77,255;
+    --deep-purple: #160627; --shadow-purple: #3c1166;
+    --acc: #ff3ec8; --acc-rgb: 255,62,200;
+    --other-acc: #6e93b8; --other-acc-rgb: 110,147,184;
+    background: #0d0318;
+  }
+  body.theme-fantasy::before {
+    background:
+      repeating-linear-gradient(0deg, transparent 0 3px, rgba(255,62,200,0.025) 3px 4px),
+      radial-gradient(ellipse at 30% 40%, rgba(60,17,102,0.5) 0%, transparent 60%),
+      radial-gradient(ellipse at 70% 80%, rgba(255,62,200,0.10) 0%, transparent 55%);
+    animation: holo-flicker 7s ease-in-out infinite;
+  }
+  @keyframes holo-flicker { 0%,100%{opacity:1} 48%{opacity:1} 50%{opacity:0.93} 52%{opacity:1} 73%{opacity:0.97} 74%{opacity:1} }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Crimson Pro', Georgia, serif;
+    font-size: 16px;
+    background: #080510;
+    color: var(--parchment);
+    min-height: 100vh;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse at 20% 50%, rgba(45,27,78,0.3) 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 50%, rgba(10,20,30,0.4) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .app { position: relative; z-index: 1; max-width: 860px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+
+  /* HEADER */
+  .app-header { text-align: center; margin-bottom: 1.5rem; }
+  .app-title { font-family: 'Cinzel Decorative', cursive; font-size: clamp(1.4rem, 4vw, 2rem); color: var(--gold-light); text-shadow: 0 0 30px rgba(var(--gold-rgb),0.4); margin-bottom: 0.3rem; }
+  .app-sub { font-family: 'Cinzel', serif; font-size: 0.78rem; letter-spacing: 0.3em; text-transform: uppercase; color: var(--mist-light); opacity: 0.6; }
+
+  /* ============================================================
+     CONNECTION SCREEN
+  ============================================================ */
+  .connect-screen { max-width: 480px; margin: 0 auto; }
+
+  .connect-card {
+    background: rgba(0,0,0,0.4);
+    border: 1px solid rgba(255,255,255,0.07);
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .connect-label {
+    font-family: 'Cinzel', serif;
+    font-size: 0.72rem;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--gold);
+    opacity: 0.7;
+    margin-bottom: 1rem;
+    display: block;
+  }
+
+  .role-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; margin-bottom: 1.2rem; }
+
+  .role-btn {
+    padding: 1rem 0.8rem;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(0,0,0,0.3);
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+  }
+  .role-btn:hover { border-color: rgba(var(--gold-rgb),0.35); }
+  .role-btn.selected.artist { border-color: rgba(110,147,184,0.7); background: rgba(110,147,184,0.08); box-shadow: 0 0 14px rgba(110,147,184,0.15); }
+  .role-btn.selected.p2 { border-color: rgba(255,62,200,0.7); background: rgba(255,62,200,0.08); box-shadow: 0 0 14px rgba(255,62,200,0.18); }
+  .role-btn-name { font-family: 'Cinzel', serif; font-size: 0.85rem; letter-spacing: 0.15em; margin-bottom: 0.3rem; }
+  .role-btn.artist .role-btn-name { color: #9fc0da; }
+  .role-btn.p2 .role-btn-name { color: #ff7ddd; }
+  .role-btn-desc { font-size: 0.82rem; font-style: italic; color: var(--bone); opacity: 0.6; line-height: 1.4; }
+
+  .pin-row { display: flex; gap: 0.6rem; align-items: center; margin-bottom: 1rem; }
+  .pin-label { font-family: 'Cinzel', serif; font-size: 0.72rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--bone); opacity: 0.6; white-space: nowrap; }
+  .pin-input {
+    flex: 1;
+    background: rgba(0,0,0,0.5);
+    border: 1px solid rgba(255,255,255,0.12);
+    color: var(--parchment);
+    padding: 0.6rem 0.8rem;
+    font-family: 'Cinzel Decorative', cursive;
+    font-size: 1.3rem;
+    letter-spacing: 0.2em;
+    text-align: center;
+    outline: none;
+    transition: border-color 0.2s;
+    max-width: 140px;
+  }
+  .pin-input:focus { border-color: rgba(var(--gold-rgb),0.5); }
+
+  .pin-display {
+    text-align: center;
+    margin-bottom: 1rem;
+  }
+  .pin-number {
+    font-family: 'Cinzel Decorative', cursive;
+    font-size: 2.5rem;
+    color: var(--gold-light);
+    text-shadow: 0 0 20px rgba(var(--gold-rgb),0.4);
+    letter-spacing: 0.2em;
+    display: block;
+  }
+  .pin-hint { font-size: 0.88rem; font-style: italic; color: var(--bone); opacity: 0.5; margin-top: 0.3rem; }
+
+  .key-row { display: flex; gap: 0.6rem; align-items: center; margin-bottom: 1rem; }
+  .key-label { font-family: 'Cinzel', serif; font-size: 0.72rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--gold); opacity: 0.7; white-space: nowrap; }
+  .key-input {
+    flex: 1;
+    background: rgba(0,0,0,0.5);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: var(--parchment);
+    padding: 0.5rem 0.7rem;
+    font-family: 'Crimson Pro', serif;
+    font-size: 0.95rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .key-input:focus { border-color: rgba(var(--gold-rgb),0.5); }
+  .key-status { font-size: 0.82rem; font-style: italic; color: var(--mist-light); white-space: nowrap; }
+
+  .connect-btn {
+    width: 100%;
+    font-family: 'Cinzel', serif;
+    font-size: 0.85rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--ink);
+    background: linear-gradient(135deg, var(--gold), var(--gold-light));
+    border: none;
+    padding: 0.85rem;
+    cursor: pointer;
+    clip-path: polygon(6px 0%, calc(100% - 6px) 0%, 100% 6px, 100% calc(100% - 6px), calc(100% - 6px) 100%, 6px 100%, 0% calc(100% - 6px), 0% 6px);
+    transition: all 0.25s;
+    box-shadow: 0 0 20px rgba(var(--gold-rgb),0.2);
+    margin-bottom: 0.5rem;
+  }
+  .connect-btn:hover:not(:disabled) { box-shadow: 0 0 35px rgba(var(--gold-rgb),0.45); transform: translateY(-1px); }
+  .connect-btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+
+  .status-area { min-height: 2.5rem; display: flex; align-items: center; justify-content: center; }
+  .status-msg {
+    font-size: 0.92rem;
+    font-style: italic;
+    padding: 0.5rem 0.8rem;
+    border-left: 2px solid;
+    text-align: center;
+  }
+  .status-msg.waiting { color: var(--bone); border-left-color: var(--gold); animation: spulse 2s ease-in-out infinite; }
+  .status-msg.connected { color: var(--green); border-left-color: var(--green); }
+  .status-msg.error { color: var(--blood-light); border-left-color: var(--blood-light); }
+  .status-msg.info { color: var(--mist-light); border-left-color: var(--mist); }
+  @keyframes spulse { 0%,100%{opacity:0.8} 50%{opacity:0.35} }
+
+  .dots { display: inline-flex; gap: 4px; vertical-align: middle; margin-left: 6px; }
+  .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--gold); animation: db 1.2s ease-in-out infinite; display: inline-block; }
+  .dot:nth-child(2){animation-delay:0.2s;}.dot:nth-child(3){animation-delay:0.4s;}
+  @keyframes db{0%,80%,100%{opacity:0.2;transform:scale(0.8)}40%{opacity:1;transform:scale(1)}}
+
+  /* ============================================================
+     GAME SCREENS
+  ============================================================ */
+  .game-screen { display: none; }
+  .game-screen.active { display: block; animation: fadein 0.4s ease; }
+  @keyframes fadein { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+
+  /* CONNECTION BADGE */
+  .conn-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-family: 'Cinzel', serif;
+    font-size: 0.72rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--green);
+    border: 1px solid rgba(29,158,117,0.3);
+    padding: 0.3rem 0.8rem;
+    background: var(--green-dim);
+    margin-bottom: 1rem;
+    display: inline-flex;
+  }
+  .conn-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 6px var(--green);
+    animation: cglow 2s ease-in-out infinite;
+  }
+  @keyframes cglow { 0%,100%{box-shadow:0 0 4px var(--green)}50%{box-shadow:0 0 10px var(--green)} }
+
+  /* ---- ARTIST GAME SCREEN ---- */
+  .artist-layout { display: flex; flex-direction: column; gap: 0.8rem; }
+
+  .room-indicator {
+    display: flex; align-items: center; gap: 0.8rem;
+    background: rgba(0,0,0,0.4); border: 1px solid rgba(var(--gold-rgb),0.15);
+    padding: 0.6rem 1rem;
+  }
+  .room-name { font-family: 'Cinzel', serif; font-size: 0.82rem; letter-spacing: 0.15em; color: var(--gold); }
+  .room-exits { font-size: 0.78rem; font-style: italic; color: var(--bone); opacity: 0.55; margin-left: auto; }
+
+  .story-feed {
+    background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.06);
+    padding: 1rem; min-height: 260px; max-height: 360px; overflow-y: auto;
+    display: flex; flex-direction: column; gap: 0.7rem;
+    scrollbar-width: thin; scrollbar-color: rgba(var(--gold-rgb),0.15) transparent;
+  }
+  .story-entry { border-left: 2px solid; padding: 0.4rem 0.6rem; background: rgba(0,0,0,0.2); }
+  .story-entry.narrator { border-left-color: var(--gold); }
+  .story-entry.flash { border-left-color: var(--mist); background: rgba(var(--mist-rgb),0.06); }
+  .story-entry.action { border-left-color: rgba(255,255,255,0.15); }
+  .story-entry.system { border-left-color: var(--blood); background: rgba(139,26,26,0.06); }
+  .entry-tag { font-family: 'Cinzel', serif; font-size: 0.58rem; letter-spacing: 0.2em; text-transform: uppercase; opacity: 0.45; display: block; margin-bottom: 0.2rem; }
+  .story-entry.flash .entry-tag { color: var(--mist-light); opacity: 0.7; }
+  .entry-body { font-size: 0.92rem; line-height: 1.65; }
+  .story-entry.flash .entry-body { font-style: italic; color: var(--mist-light); }
+
+  .thinking-row { font-family: 'Cinzel', serif; font-size: 0.72rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--gold); opacity: 0; min-height: 1.4rem; text-align: center; }
+  .thinking-row.on { opacity: 0.6; animation: flicker 1.5s ease-in-out infinite; }
+  @keyframes flicker { 0%,100%{opacity:0.6} 50%{opacity:0.2} }
+
+  .action-row { display: flex; gap: 0.5rem; }
+  .action-input { flex: 1; background: rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.1); color: var(--parchment); padding: 0.65rem 0.9rem; font-family: 'Crimson Pro', serif; font-size: 1rem; font-style: italic; outline: none; transition: border-color 0.2s; }
+  .action-input:focus { border-color: rgba(var(--gold-rgb),0.45); }
+  .action-input::placeholder { color: rgba(255,255,255,0.2); }
+  .action-input:disabled { opacity: 0.4; }
+  .action-btn { font-family: 'Cinzel', serif; font-size: 0.75rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--ink); background: linear-gradient(135deg, var(--gold), var(--gold-light)); border: none; padding: 0.65rem 1.2rem; cursor: pointer; transition: all 0.2s; clip-path: polygon(5px 0%,calc(100% - 5px) 0%,100% 5px,100% calc(100% - 5px),calc(100% - 5px) 100%,5px 100%,0% calc(100% - 5px),0% 5px); }
+  .action-btn:hover:not(:disabled) { box-shadow: 0 0 20px rgba(var(--gold-rgb),0.4); }
+  .action-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  /* NOTE SECTION */
+  .note-section { background: rgba(0,0,0,0.3); border: 1px solid rgba(139,26,26,0.2); padding: 0.75rem; }
+  .note-label { font-family: 'Cinzel', serif; font-size: 0.62rem; letter-spacing: 0.25em; text-transform: uppercase; color: var(--blood-light); opacity: 0.8; margin-bottom: 0.5rem; }
+  .note-thread { min-height: 50px; max-height: 120px; overflow-y: auto; margin-bottom: 0.5rem; display: flex; flex-direction: column; gap: 0.3rem; scrollbar-width: thin; scrollbar-color: rgba(139,26,26,0.2) transparent; }
+  .note-bubble { padding: 0.3rem 0.6rem; font-size: 0.85rem; line-height: 1.5; border-left: 2px solid; }
+  .note-bubble.from-p2 { border-left-color: var(--gold); background: rgba(var(--gold-rgb),0.06); color: var(--parchment); font-style: italic; }
+  .note-bubble.from-artist { border-left-color: var(--mist); background: rgba(var(--mist-rgb),0.06); color: var(--parchment); font-style: italic; }
+  .note-bubble.sys { border-left-color: var(--blood); background: rgba(139,26,26,0.08); color: var(--bone); font-size: 0.8rem; font-style: italic; }
+  .note-from { font-family: 'Cinzel', serif; font-size: 0.55rem; letter-spacing: 0.15em; opacity: 0.45; display: block; margin-bottom: 0.1rem; }
+  .note-compose { display: flex; gap: 0.4rem; }
+  .note-input { flex: 1; background: rgba(0,0,0,0.45); border: 1px solid rgba(139,26,26,0.2); color: var(--parchment); padding: 0.5rem 0.7rem; font-family: 'Crimson Pro', serif; font-size: 0.9rem; font-style: italic; outline: none; transition: border-color 0.2s; }
+  .note-input:focus { border-color: rgba(139,26,26,0.5); }
+  .note-input::placeholder { color: rgba(255,255,255,0.18); }
+  .note-send { font-family: 'Cinzel', serif; font-size: 0.65rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--blood-light); background: transparent; border: 1px solid rgba(139,26,26,0.3); padding: 0.5rem 0.9rem; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+  .note-send:hover { background: rgba(139,26,26,0.1); }
+  .note-send:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  /* ---- P2 GAME SCREEN ---- */
+  .p2-layout { display: flex; flex-direction: column; gap: 0.8rem; }
+
+  .grid-card { background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.06); padding: 1rem; }
+  .grid-label { font-family: 'Cinzel', serif; font-size: 0.62rem; letter-spacing: 0.25em; text-transform: uppercase; color: var(--bone); opacity: 0.45; margin-bottom: 0.75rem; }
+  .grid-canvas {
+    position: relative; width: 100%; height: 300px;
+    background: rgba(0,0,0,0.5); border: 1px solid rgba(var(--gold-rgb),0.1);
+    overflow: hidden;
+  }
+  .grid-canvas::before {
+    content: '';
+    position: absolute; inset: 0;
+    background:
+      repeating-linear-gradient(0deg, transparent, transparent 27px, rgba(var(--gold-rgb),0.03) 28px),
+      repeating-linear-gradient(90deg, transparent, transparent 27px, rgba(var(--gold-rgb),0.03) 28px);
+    pointer-events: none;
+  }
+  .pressure-dot {
+    position: absolute; width: 14px; height: 14px; border-radius: 50%;
+    background: rgba(29,158,117,0.85); border: 1px solid rgba(29,158,117,0.9);
+    transform: translate(-50%,-50%);
+    box-shadow: 0 0 8px rgba(29,158,117,0.5);
+    transition: all 0.5s ease;
+    pointer-events: none;
+  }
+  .pressure-dot.touched { background: rgba(80,60,100,0.5); border-color: rgba(80,60,100,0.6); box-shadow: none; }
+  .pressure-dot-num {
+    position: absolute; font-family: 'Cinzel', serif; font-size: 9px; color: rgba(255,255,255,0.4);
+    transform: translateX(-50%); pointer-events: none; white-space: nowrap;
+  }
+  .artist-marker {
+    position: absolute; width: 20px; height: 20px; border-radius: 50%;
+    background: rgba(192,57,43,0.8); border: 1px solid rgba(192,57,43,0.9);
+    transform: translate(-50%,-50%); cursor: grab; z-index: 10;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Cinzel', serif; font-size: 8px; color: #fff; font-weight: 600;
+    box-shadow: 0 0 10px rgba(192,57,43,0.4);
+    user-select: none; transition: box-shadow 0.2s;
+  }
+  .artist-marker:active { cursor: grabbing; }
+  .drag-hint { font-size: 0.78rem; font-style: italic; color: var(--bone); opacity: 0.4; text-align: center; margin-top: 0.5rem; }
+
+  .compass-label {
+    position: absolute; font-family: 'Cinzel', serif; font-size: 0.65rem; letter-spacing: 0.2em;
+    color: rgba(var(--gold-rgb),0.4); pointer-events: none; z-index: 1;
+  }
+  .compass-n { top: 4px; left: 50%; transform: translateX(-50%); }
+  .compass-s { bottom: 4px; left: 50%; transform: translateX(-50%); }
+  .compass-w { left: 4px; top: 50%; transform: translateY(-50%); }
+  .compass-e { right: 4px; top: 50%; transform: translateY(-50%); }
+
+  .points-status { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .point-pill {
+    font-family: 'Cinzel', serif; font-size: 0.65rem; letter-spacing: 0.1em;
+    padding: 0.25rem 0.55rem; border: 1px solid rgba(29,158,117,0.4);
+    color: var(--green); background: var(--green-dim);
+    transition: all 0.4s;
+  }
+  .point-pill.touched { border-color: rgba(255,255,255,0.08); color: rgba(255,255,255,0.2); background: transparent; text-decoration: line-through; }
+
+  .flash-log {
+    background: rgba(var(--mist-rgb),0.05); border: 1px solid rgba(var(--mist-rgb),0.15);
+    padding: 0.75rem; min-height: 60px; max-height: 180px; overflow-y: auto;
+    scrollbar-width: thin; scrollbar-color: rgba(var(--mist-rgb),0.2) transparent;
+  }
+  .flash-log-label { font-family: 'Cinzel', serif; font-size: 0.62rem; letter-spacing: 0.25em; text-transform: uppercase; color: var(--mist-light); opacity: 0.7; margin-bottom: 0.5rem; }
+  .flash-item { font-size: 0.88rem; font-style: italic; color: var(--mist-light); line-height: 1.5; padding: 0.3rem 0; border-bottom: 1px solid rgba(var(--mist-rgb),0.08); }
+  .flash-item:last-child { border-bottom: none; }
+  .flash-item-name { font-family: 'Cinzel', serif; font-size: 0.65rem; letter-spacing: 0.15em; color: var(--mist); display: block; margin-bottom: 0.15rem; }
+  .flash-empty { font-size: 0.85rem; font-style: italic; color: rgba(255,255,255,0.2); text-align: center; padding: 0.5rem; }
+
+  .completion-card {
+    display: none; background: rgba(29,158,117,0.08); border: 1px solid rgba(29,158,117,0.3);
+    padding: 1rem; text-align: center;
+  }
+  .completion-card.show { display: block; animation: fadein 0.5s ease; }
+  .completion-card p { font-family: 'Cinzel', serif; font-size: 0.82rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--green); }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 3px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(var(--gold-rgb),0.2); }
+
+  /* ============================================================
+     ARTIST CONSOLE — parchment phone
+  ============================================================ */
+  body.theme-artist .artist-layout {
+    max-width: 480px; margin: 0 auto;
+    border: 2px solid #2c3a4a; border-radius: 22px; overflow: hidden;
+    background: #18242f; gap: 0; box-shadow: 0 10px 40px rgba(0,0,0,0.55);
+  }
+  body.theme-artist .artist-layout::before {
+    content: '●●●\00a0\00a0\00a0Saintalia Mobile\00a0\00a0\00a09:41';
+    display: block; flex-shrink: 0;
+    background: #1c2a3a; color: #9fc0da;
+    font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, sans-serif;
+    font-size: 0.62rem; letter-spacing: 0.06em; text-align: center;
+    padding: 0.35rem 0.8rem;
+  }
+  body.theme-artist .artist-layout > * { margin: 0.4rem 0.6rem; }
+  body.theme-artist .artist-layout > *:last-child { margin-bottom: 0.7rem; }
+  body.theme-artist .room-indicator { background: rgba(110,147,184,0.08); border-color: rgba(110,147,184,0.2); border-radius: 10px; }
+  body.theme-artist .story-feed {
+    background: #efe7d6; border: 1px solid #d3c6a8; border-radius: 12px;
+    scrollbar-color: rgba(110,147,184,0.4) transparent;
+  }
+  body.theme-artist .story-feed .story-entry { background: rgba(255,255,255,0.45); border-radius: 0 10px 10px 0; }
+  body.theme-artist .story-feed .entry-body { color: #2a2419; font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, sans-serif; font-size: 0.88rem; }
+  body.theme-artist .story-feed .entry-tag { color: #6f6552; opacity: 0.8; }
+  body.theme-artist .story-entry.narrator { border-left-color: #6e93b8; }
+  body.theme-artist .story-entry.action { border-left-color: #b8ab8d; }
+  /* flashes come from the other side — let her console glitch fuchsia */
+  body.theme-artist .story-entry.flash { border-left-color: rgba(255,62,200,0.55); background: rgba(255,62,200,0.06); }
+  body.theme-artist .story-feed .story-entry.flash .entry-body { color: #8e2a70; }
+  body.theme-artist .story-feed .story-entry.flash .entry-tag { color: #a0307e; }
+  body.theme-artist .action-input {
+    background: #efe7d6; border: 1px solid #d3c6a8; border-radius: 18px;
+    color: #2a2419; font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, sans-serif;
+    font-style: normal; font-size: 0.92rem;
+  }
+  body.theme-artist .action-input::placeholder { color: #8a7f68; }
+  body.theme-artist .action-input:focus { border-color: #6e93b8; }
+  body.theme-artist .action-btn {
+    clip-path: none; border-radius: 18px;
+    background: linear-gradient(135deg, #3e7cb8, #6e93b8); color: #f5f9ff;
+  }
+  body.theme-artist .note-section { border-radius: 12px; }
+  body.theme-artist .note-bubble.from-p2 { border-left-color: rgba(255,62,200,0.6); background: rgba(255,62,200,0.07); }
+  body.theme-artist .note-input { border-radius: 14px; }
+
+  /* ============================================================
+     P2 / SAINTALIA CONSOLE — fuchsia hologram
+  ============================================================ */
+  body.theme-fantasy .app-title { font-family: 'Orbitron', sans-serif; }
+  body.theme-fantasy .grid-card,
+  body.theme-fantasy .flash-log,
+  body.theme-fantasy .note-section {
+    background: rgba(40,10,60,0.35); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    border: 1px solid rgba(255,62,200,0.3); border-radius: 6px;
+    box-shadow: 0 0 14px rgba(255,62,200,0.15), inset 0 0 24px rgba(157,77,255,0.06);
+  }
+  body.theme-fantasy .grid-label,
+  body.theme-fantasy .flash-log-label,
+  body.theme-fantasy .note-label {
+    font-family: 'Orbitron', sans-serif; color: #ff7ddd; opacity: 0.85;
+    text-shadow: 0 0 8px rgba(255,62,200,0.5);
+  }
+  body.theme-fantasy .grid-canvas { background: rgba(13,3,24,0.6); border-color: rgba(255,62,200,0.25); }
+  body.theme-fantasy .grid-canvas::before {
+    background:
+      repeating-linear-gradient(0deg, transparent, transparent 27px, rgba(255,62,200,0.05) 28px),
+      repeating-linear-gradient(90deg, transparent, transparent 27px, rgba(255,62,200,0.05) 28px);
+  }
+  body.theme-fantasy .grid-canvas::after {
+    content: ''; position: absolute; left: 0; right: 0; height: 2px; top: -2%;
+    background: linear-gradient(90deg, transparent, rgba(255,62,200,0.35), transparent);
+    animation: holo-sweep 5s linear infinite; pointer-events: none;
+  }
+  @keyframes holo-sweep { 0% { top: -2%; } 100% { top: 102%; } }
+  body.theme-fantasy .pressure-dot { border-color: rgba(255,62,200,0.7); box-shadow: 0 0 8px rgba(29,158,117,0.5), 0 0 14px rgba(255,62,200,0.3); }
+  body.theme-fantasy .flash-item-name { font-family: 'Share Tech Mono', monospace; letter-spacing: 0.08em; }
+  body.theme-fantasy .drag-hint { color: #c39bff; }
+  /* artist's notes arrive from the waking world — slate hint */
+  body.theme-fantasy .note-bubble.from-artist { border-left-color: rgba(110,147,184,0.6); background: rgba(110,147,184,0.07); }
+  body.theme-fantasy .conn-badge { border-radius: 4px; text-shadow: 0 0 6px rgba(29,158,117,0.5); }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <div class="app-header">
+    <h1 class="app-title">Saintalia</h1>
+    <p class="app-sub">The Lockdown -- Two Player Test</p>
+  </div>
+
+  <!-- ============================================================
+       CONNECTION SCREEN
+  ============================================================ -->
+  <div id="connectScreen" class="connect-screen">
+
+    <div class="connect-card">
+      <span class="connect-label">Step 1 -- Choose your side</span>
+      <div class="role-grid">
+        <button class="role-btn artist" id="roleArtist" onclick="selectRole('artist')">
+          <div class="role-btn-name">The Artist</div>
+          <div class="role-btn-desc">You are trapped in the building. Find the five wrong objects. You drive the narration.</div>
+        </button>
+        <button class="role-btn p2" id="roleP2" onclick="selectRole('p2')">
+          <div class="role-btn-name">P2 -- Saintalia</div>
+          <div class="role-btn-desc">You watch five points of light. Guide the artist through the veil.</div>
+        </button>
+      </div>
+
+      <span class="connect-label">Step 2 -- Connect</span>
+
+      <div id="artistConnectFlow" style="display:none">
+        <div class="key-row">
+          <span class="key-label">Groq Key</span>
+          <input class="key-input" type="password" id="groqKey" placeholder="gsk_..." oninput="updateKeyStatus()" />
+          <span class="key-status" id="keyStatus">No key -- offline fallback</span>
+        </div>
+        <p style="font-size:0.88rem;font-style:italic;color:rgba(255,255,255,0.35);margin-bottom:1rem;">Your PIN will appear below. Share it with P2.</p>
+        <div class="pin-display" id="pinDisplay" style="display:none">
+          <span class="pin-number" id="pinNumber">----</span>
+          <span class="pin-hint">Share this PIN with P2. They enter it to connect.</span>
+        </div>
+        <button class="connect-btn" id="btnOpenVeil" onclick="openVeil()" disabled>Generate PIN and Open the Veil</button>
+      </div>
+
+      <div id="p2ConnectFlow" style="display:none">
+        <p style="font-size:0.88rem;font-style:italic;color:rgba(255,255,255,0.35);margin-bottom:1rem;">Enter the PIN the Artist gave you.</p>
+        <div class="pin-row" style="margin-bottom:1rem;">
+          <span class="pin-label">PIN</span>
+          <input class="pin-input" id="pinInput" placeholder="0000" maxlength="4" oninput="this.value=this.value.replace(/[^0-9]/g,'')"/>
+        </div>
+        <button class="connect-btn" id="btnJoinVeil" onclick="joinVeil()">Step Through</button>
+      </div>
+
+      <div class="status-area" id="statusArea">
+        <div class="status-msg info">Choose your side to begin.</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ============================================================
+       ARTIST GAME SCREEN
+  ============================================================ -->
+  <div id="artistScreen" class="game-screen">
+    <div class="conn-badge">
+      <div class="conn-dot"></div>
+      P2 connected -- the veil holds
+    </div>
+    <div class="artist-layout">
+      <div class="room-indicator">
+        <span class="room-name" id="roomName">Entrance Hall</span>
+        <span class="room-exits" id="roomExits">Exits: N, E</span>
+      </div>
+      <div class="story-feed" id="storyFeed"></div>
+      <div class="thinking-row" id="thinkingRow">The building listens...</div>
+      <div class="action-row">
+        <input class="action-input" id="artistInput" placeholder="What do you do... (go north, search the room, touch the clock...)" maxlength="200" />
+        <button class="action-btn" id="actBtn" onclick="artistAct()">Act</button>
+      </div>
+      <div class="note-section">
+        <div class="note-label">Notes through the veil</div>
+        <div class="note-thread" id="noteThreadArtist"></div>
+        <div class="note-compose">
+          <input class="note-input" id="artistNoteInput" placeholder="Send a note to P2..." maxlength="320" />
+          <button class="note-send" id="artistNoteSend" onclick="sendNote('artist')">Send</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       P2 GAME SCREEN
+  ============================================================ -->
+  <div id="p2Screen" class="game-screen">
+    <div class="conn-badge">
+      <div class="conn-dot"></div>
+      Artist connected -- the veil holds
+    </div>
+    <div class="p2-layout">
+      <div class="grid-card">
+        <div class="grid-label">Pressure point grid (oriented N/S/E/W) -- the red marker shows where the Artist is right now. Each green dot is a wrong object; its label tells you roughly where it sits relative to the entrance. Dots go dark when found. Use the compass directions in your notes to guide the Artist.</div>
+        <div class="grid-canvas" id="gridCanvas">
+          <div class="compass-label compass-n">N</div>
+          <div class="compass-label compass-s">S</div>
+          <div class="compass-label compass-e">E</div>
+          <div class="compass-label compass-w">W</div>
+          <div class="artist-marker" id="artistMarker">A</div>
+        </div>
+        <div class="drag-hint">The red marker moves automatically as the Artist navigates. Watch the green dots go dark as objects are found.</div>
+      </div>
+      <div class="points-status" id="pointsStatus"></div>
+      <div class="flash-log" id="flashLog">
+        <div class="flash-log-label">Flash transmissions received</div>
+        <div class="flash-empty" id="flashEmpty">Nothing yet. The artist has not touched anything wrong.</div>
+      </div>
+      <div class="note-section">
+        <div class="note-label">Notes through the veil</div>
+        <div class="note-thread" id="noteThreadP2"></div>
+        <div class="note-compose">
+          <input class="note-input" id="p2NoteInput" placeholder="Guide the artist..." maxlength="320" />
+          <button class="note-send" id="p2NoteSend" onclick="sendNote('p2')">Send</button>
+        </div>
+      </div>
+      <div class="completion-card" id="completionCard">
+        <p>All five points dark. The building is releasing.</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ============================================================
+// SAINTALIA LOCKDOWN -- TWO PLAYER
+// Author: Maridizzle
+// ============================================================
+
+const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
+const GROQ_MODEL = 'llama-3.3-70b-versatile';
+
+// ---- SESSION STATE ----
+const S = {
+  role: null,       // 'artist' | 'p2'
+  peer: null,
+  conn: null,
+  connected: false,
+  pin: null,
+};
+
+// ---- ROOM MAP ----
+const ROOMS = {
+  entrance: {
+    id: 'entrance', name: 'Entrance Hall',
+    desc: 'A long hall. The lights are on but shadows fall in directions that do not correspond to any light source. Two large pillars flank the center. The scaffolding from the mural project fills the far corner, draped in canvas that moves slightly despite no draft.',
+    exits: { N: 'hallwayA', E: 'utilityRoom' }, object: 'clock',
+  },
+  hallwayA: {
+    id: 'hallwayA', name: 'Hallway A',
+    desc: 'A connecting corridor between the entrance and the main corridor. Plain walls. A fire extinguisher mounted at the wrong height. The floor here is slightly tacky underfoot for no reason you can identify.',
+    exits: { S: 'entrance', N: 'corridor' }, object: null,
+  },
+  utilityRoom: {
+    id: 'utilityRoom', name: 'Utility Room',
+    desc: 'Exposed pipes. A drain in the center of the floor. Shelves of cleaning supplies and labeled boxes. The smell of something that is not cleaning fluid underneath the cleaning fluid smell. Nothing moves. Everything feels recently disturbed.',
+    exits: { W: 'entrance' }, object: null,
+  },
+  corridor: {
+    id: 'corridor', name: 'Main Corridor',
+    desc: 'The corridor bends in a way the building exterior did not suggest was possible. A fire exit sign glows red at the far end. Between you and it: four support columns, a rolling cart of painting supplies left from the mural project, and a cold spot that does not move when you walk through it.',
+    exits: { S: 'hallwayA', N: 'storageRoom' }, object: 'photograph',
+  },
+  storageRoom: {
+    id: 'storageRoom', name: 'Storage Room',
+    desc: 'Filing cabinets. Stacked chairs in rows. The detritus of a building that has been here a long time. A window high on the far wall shows a slice of night sky. The window has no latch mechanism visible from the floor. Something in the third filing cabinet rattles very slightly when you are not moving.',
+    exits: { S: 'corridor', W: 'landing' }, object: 'key',
+  },
+  landing: {
+    id: 'landing', name: 'Empty Landing',
+    desc: 'A landing between floors. The stairwell is visible above and below. There is a bench here that no one has sat on in a long time. The wall paint on the north side is slightly newer than everywhere else, as if something was patched over. You do not know what.',
+    exits: { E: 'storageRoom', N: 'stairwell' }, object: null,
+  },
+  stairwell: {
+    id: 'stairwell', name: 'Stairwell',
+    desc: 'Stairs going up, stairs going down. The descent looks normal. The ascent does not -- somewhere around the third landing the perspective behaves incorrectly, as if the stairs continue past the building itself. Your phone has two bars of signal here. The handrail is cold in a way that metal should not be at room temperature.',
+    exits: { S: 'landing', W: 'breakRoom' }, object: 'compass',
+  },
+  breakRoom: {
+    id: 'breakRoom', name: 'Break Room',
+    desc: 'A table. Four chairs. A countertop with a sink and a coffee maker with a cracked carafe. The whiteboard on the wall has been wiped but not completely -- under the cleaning marks you can see the ghost of writing in a script you do not recognize. The fluorescent light above the sink flickers at irregular intervals.',
+    exits: { E: 'stairwell', N: 'sideCorridor' }, object: null,
+  },
+  sideCorridor: {
+    id: 'sideCorridor', name: 'Side Corridor',
+    desc: 'A smaller corridor off the main building path. The ceiling is lower here. Three doors, all locked. One of them has light under it that is the wrong color -- not wrong like a colored bulb, wrong like the light is coming from somewhere that has never had electricity. The air here moves in a direction that is not toward any vent.',
+    exits: { S: 'breakRoom' }, object: 'bottle',
+  },
+};
+
+// ---- ROOM GRID POSITIONS ----
+// Building layout reflected as X/Y % positions on the grid
+// Vertical axis: top = north end of building, bottom = entrance
+// Horizontal axis: left = west, right = east
+const ROOM_POSITIONS = {
+  sideCorridor: { x: 30, y: 8  },
+  breakRoom:    { x: 30, y: 22 },
+  stairwell:    { x: 30, y: 36 },
+  landing:      { x: 55, y: 36 },
+  storageRoom:  { x: 75, y: 36 },
+  corridor:     { x: 55, y: 52 },
+  hallwayA:     { x: 55, y: 65 },
+  utilityRoom:  { x: 78, y: 65 },
+  entrance:     { x: 55, y: 80 },
+};
+
+// ---- OBJECT DATA ----
+// gridX/gridY now match their room's position exactly
+const OBJECTS = {
+  clock:      { id:'clock',      name:'a clock with no hands but too many faces',              shortName:'clock',      aliases:['clock','clocks','dial','dials'],                       hint:'south end, in the entrance itself',     flashName:'The Flythrough',    pointId:4, gridX: ROOM_POSITIONS.entrance.x,     gridY: ROOM_POSITIONS.entrance.y,     found:false },
+  photograph: { id:'photograph', name:'a photograph where every subject has their back turned', shortName:'photograph', aliases:['photograph','photo','photos','picture','pictures','frame'], hint:'central corridor, north of the entrance', flashName:'The Harvest',        pointId:5, gridX: ROOM_POSITIONS.corridor.x,     gridY: ROOM_POSITIONS.corridor.y,     found:false },
+  key:        { id:'key',        name:'a key made of teeth',                                    shortName:'key',        aliases:['key','keys'],                                          hint:'far northeast, near the storage area',  flashName:'Cellular Fusion',   pointId:1, gridX: ROOM_POSITIONS.storageRoom.x,  gridY: ROOM_POSITIONS.storageRoom.y,  found:false },
+  compass:    { id:'compass',    name:'a compass whose needle points inward',                   shortName:'compass',    aliases:['compass','compasses'],                                 hint:'northwest, in the stairwell',           flashName:'The Neural Network', pointId:3, gridX: ROOM_POSITIONS.stairwell.x,    gridY: ROOM_POSITIONS.stairwell.y,    found:false },
+  bottle:     { id:'bottle',     name:'a water bottle that pours nothing',                      shortName:'bottle',     aliases:['bottle','bottles','water bottle','water'],             hint:'far north, west wing',                  flashName:'The Book',          pointId:2, gridX: ROOM_POSITIONS.sideCorridor.x, gridY: ROOM_POSITIONS.sideCorridor.y, found:false },
+};
+
+// ---- DECOR (non-key items players might poke at) ----
+const ROOM_DECOR = {
+  entrance:     [ { name:'the pillars', aliases:['pillar','pillars','column','columns'] }, { name:'the scaffolding', aliases:['scaffolding','canvas','tarp','mural'] } ],
+  hallwayA:     [ { name:'the fire extinguisher', aliases:['fire extinguisher','extinguisher'] }, { name:'the floor', aliases:['floor','tile','tiles','ground'] } ],
+  utilityRoom:  [ { name:'the drain', aliases:['drain'] }, { name:'the shelves', aliases:['shelf','shelves','boxes','box','cleaning supplies','supplies'] }, { name:'the pipes', aliases:['pipe','pipes'] } ],
+  corridor:     [ { name:'the fire exit sign', aliases:['fire exit sign','exit sign','sign'] }, { name:'the support columns', aliases:['column','columns','pillar','pillars'] }, { name:'the rolling cart', aliases:['cart','painting supplies','rolling cart'] }, { name:'the cold spot', aliases:['cold spot'] } ],
+  storageRoom:  [ { name:'the filing cabinets', aliases:['filing cabinet','filing cabinets','cabinet','cabinets'] }, { name:'the stacked chairs', aliases:['chair','chairs'] }, { name:'the window', aliases:['window'] } ],
+  landing:      [ { name:'the bench', aliases:['bench'] }, { name:'the patched wall', aliases:['wall','paint','patch'] } ],
+  stairwell:    [ { name:'the handrail', aliases:['handrail','rail','railing'] }, { name:'the stairs', aliases:['stairs','staircase','steps'] } ],
+  breakRoom:    [ { name:'the table', aliases:['table'] }, { name:'the chairs', aliases:['chair','chairs'] }, { name:'the coffee maker', aliases:['coffee maker','carafe','coffee'] }, { name:'the sink', aliases:['sink','faucet','countertop','counter'] }, { name:'the whiteboard', aliases:['whiteboard','board'] }, { name:'the fluorescent light', aliases:['light','lights','fluorescent'] } ],
+  sideCorridor: [ { name:'the doors', aliases:['door','doors'] } ],
+};
+
+const FLASH_CONTENT = {
+  'Cellular Fusion':    'The artist seizes. For three seconds they are inside the veil itself -- not above it or beside it but inside it. Cells the size of continents fusing and tearing. Physical, biological, happening in real time beneath this building. Membranes the width of mountain ranges press together and merge, and where they merge something new wakes up, briefly, and screams without a mouth, and is quiet again. The artist can feel the temperature of it. They can feel that it has weight, that it is happening on a scale that should not fit inside a single moment of human attention and yet does, completely, leaving no room for anything else. What is fusing to what is not yet clear. Whether it can be stopped is not yet clear. Whether it has happened before, and how many times, and what was here last time it finished -- none of this is given. What is clear: it is happening right now, underneath this exact floor, underneath these exact feet, and it has been happening the entire time the artist has been walking these halls looking for small wrong things in small wrong rooms.',
+  'The Neural Network': 'The building dissolves. The artist is suspended in a network so vast the word vast does not apply, the way the word "wet" does not apply to an ocean from the inside. Universes as nodes -- not represented as nodes, not symbolized as nodes, but functioning as nodes, packets of reality passing between them along threads of something that is not light and is not thought but resembles both. The connections between them are alive -- not metaphorically alive, functionally alive, processing, communicating, routing something incomprehensible between infinite points, the way blood routes oxygen, the way nerves route pain. The artist is a mote of dust standing inside the mind of something that has never been small, has never once in its existence had an edge, and does not appear to have noticed them yet. They can feel the scale of it pressing against the inside of their skull like pressure at depth. Somewhere in that network, impossibly small and impossibly specific, is a thread that leads back to this building, to this hallway, to this exact configuration of walls.',
+  'The Book':           'A book, open, writing itself at a speed the artist cannot follow. Pages filling with text in a script they do not recognize and cannot look away from -- the letters arrive faster than sight, faster than thought, and yet each one lands somewhere in the artist with the weight of something remembered rather than something new. This book exists. It is somewhere, physically, on a shelf or a table or held in hands that are not the artist\'s own. When they find it they will know it immediately, the way you know your own name spoken in a crowded room. What it records, who writes it, where it is: none of this is given. Only the certainty that it is real, that it has been writing the whole time, long before tonight, and that whatever is happening in this building tonight is already a sentence in it -- already past tense, somewhere, to whoever is reading. It is theirs to find. It has always been theirs to find.',
+  'The Flythrough':     'The artist moves through Saintalia -- not walks, moves, pulled at a speed that compresses landscape into impression, the way a falling body compresses a fall into a single long second. Creatures. Real ones. A centaur with char marks where its hooves touch ground, each step leaving a small dying ember in dry grass. Something vast and winged and broken folding itself into a canyon, too large for the canyon, fitting anyway, the way a memory fits into a space too small for it. Eyes in the dark that track their passage without surprise, as if they have been expected, as if this flythrough happens on a schedule and they are simply the latest to take it. The wind has a temperature and a smell and neither belongs to this world. They must ask P2 to confirm what they are seeing, out loud, through the veil, because alone the artist cannot hold the certainty of it -- it slips, it wants to be a dream. P2 must say: yes, those are real, I am here with them, I see them too.',
+  'The Harvest':        'The artist stands in a void that has no temperature and no sound, and that absence is itself a kind of pressure. Off their body, threads of light extend in every direction -- connection points, beautiful, fine as hair, each one humming faintly with something that feels like memory or relationship or love, hard to say which. Then the understanding arrives, not as a thought but as a fact already known: this is what is harvested. They are standing at a rupture point, a place where the membrane between here and there is thin enough that what is inside a person becomes visible from outside. Their connection points are exposed, drifting, gently luminous, utterly unguarded. The entity does not know about them yet -- this is stated with the same flat certainty as everything else here -- but the void is not entirely empty. Something at the edge has no shape but has attention, and the attention has begun, slowly, almost lazily, to turn.',
+};
+
+// ---- GAME STATE ----
+let currentRoomId = 'entrance';
+let storyHistory = [];
+let notes = [];
+let foundCount = 0;
+let isThinking = false;
+
+// ============================================================
+// CONNECTION LAYER
+// ============================================================
+
+function selectRole(role) {
+  S.role = role;
+  document.body.classList.remove('theme-artist','theme-fantasy');
+  document.body.classList.add(role === 'artist' ? 'theme-artist' : 'theme-fantasy');
+  document.getElementById('roleArtist').classList.toggle('selected', role === 'artist');
+  document.getElementById('roleP2').classList.toggle('selected', role === 'p2');
+  document.getElementById('artistConnectFlow').style.display = role === 'artist' ? 'block' : 'none';
+  document.getElementById('p2ConnectFlow').style.display = role === 'p2' ? 'block' : 'none';
+  if (role === 'artist') {
+    document.getElementById('btnOpenVeil').disabled = false;
+    setStatus('You are the Artist. Enter your Groq key (optional), then generate a PIN.', 'info');
+  } else {
+    setStatus('You are P2. Wait for the Artist to give you a PIN, then enter it above.', 'info');
+  }
+}
+
+function openVeil() {
+  const pin = String(Math.floor(1000 + Math.random() * 9000));
+  S.pin = pin;
+  document.getElementById('pinNumber').textContent = pin;
+  document.getElementById('pinDisplay').style.display = 'block';
+  document.getElementById('btnOpenVeil').disabled = true;
+
+  setStatus('Connecting to the veil...', 'waiting');
+  initPeer('saintalia-lock-' + pin, true);
+}
+
+function joinVeil() {
+  const pin = document.getElementById('pinInput').value.trim();
+  if (pin.length !== 4) {
+    setStatus('Enter the 4-digit PIN the Artist gave you.', 'error');
+    return;
+  }
+  S.pin = pin;
+  document.getElementById('btnJoinVeil').disabled = true;
+  setStatus('Reaching through the veil...', 'waiting');
+  initPeer(null, false, 'saintalia-lock-' + pin);
+}
+
+function initPeer(myId, isHost, targetId) {
+  const config = {
+    host: '0.peerjs.com', port: 443, secure: true, path: '/', debug: 0,
+    config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }
+  };
+
+  S.peer = myId ? new Peer(myId, config) : new Peer(config);
+
+  S.peer.on('open', (id) => {
+    if (isHost) {
+      setStatus('PIN ready. Waiting for P2<span class="dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span>', 'waiting');
+    } else {
+      const conn = S.peer.connect(targetId, { reliable: true });
+      S.conn = conn;
+      setupConn(conn);
+    }
+  });
+
+  if (isHost) {
+    S.peer.on('connection', (conn) => {
+      S.conn = conn;
+      setupConn(conn);
+    });
+  }
+
+  S.peer.on('error', (err) => {
+    if (err.type === 'unavailable-id') {
+      setStatus('That PIN is already in use. Try generating a new one.', 'error');
+      document.getElementById('btnOpenVeil').disabled = false;
+      document.getElementById('pinDisplay').style.display = 'none';
+    } else {
+      setStatus('Connection error: ' + err.message, 'error');
+      if (!isHost) document.getElementById('btnJoinVeil').disabled = false;
+    }
+    S.peer = null;
+  });
+}
+
+function setupConn(conn) {
+  conn.on('open', () => {
+    S.connected = true;
+    conn.send({ type: 'handshake', role: S.role });
+  });
+
+  conn.on('data', (data) => {
+    if (data.type === 'handshake') {
+      setStatus('Connected. Both sides of the veil are present.', 'connected');
+      setTimeout(() => launchGame(), 900);
+    }
+    if (data.type === 'position') moveMarker(data.roomId);
+    if (data.type === 'note') receiveNote(data);
+    if (data.type === 'flash') receiveFlash(data);
+    if (data.type === 'complete') receiveComplete();
+  });
+
+  conn.on('close', () => {
+    S.connected = false;
+  });
+}
+
+function setStatus(html, type) {
+  document.getElementById('statusArea').innerHTML = '<div class="status-msg ' + type + '">' + html + '</div>';
+}
+
+// ============================================================
+// GAME LAUNCH
+// ============================================================
+
+function launchGame() {
+  document.getElementById('connectScreen').style.display = 'none';
+
+  if (S.role === 'artist') {
+    document.getElementById('artistScreen').classList.add('active');
+    initArtistGame();
+  } else {
+    document.getElementById('p2Screen').classList.add('active');
+    initP2Game();
+  }
+}
+
+function initArtistGame() {
+  updateRoomIndicator();
+  addEntry('The building seals', 'The exit sign you passed three minutes ago is dark. You try the nearest door. The handle moves freely but the door does not open -- not stuck, not locked in any mechanical sense, simply not opening. The entrance hall stretches around you, two pillars flanking the center, the scaffolding from your mural project filling the far corner under its restless canvas. Your phone has signal, and on the other side of it, P2 is watching a grid of lights -- one of them is you. Somewhere in this building are five objects that do not belong, each one wrong in a way that should be obvious once you are looking right at it. Searching a room carefully will reveal if one is here. Touching, taking, or examining one closely will trigger something. Everything else in these rooms -- the furniture, the fixtures, the ordinary clutter -- is just that: ordinary. Type what you do. You can move with simple compass directions (go north, head east, west), or search the room, or interact with something specific.', 'narrator');
+  storyHistory.push({ role: 'assistant', content: 'The building has sealed. The artist is in the entrance hall. Five wrong objects exist in the building.' });
+  document.getElementById('artistInput').addEventListener('keydown', e => { if (e.key === 'Enter' && !isThinking) artistAct(); });
+  document.getElementById('artistNoteInput').addEventListener('keydown', e => { if (e.key === 'Enter') sendNote('artist'); });
+}
+
+function initP2Game() {
+  initGrid();
+  updatePills();
+  addNoteBubble('noteThreadP2', 'sys', 'You are connected. Five green points of light mark wrong objects hidden in the building; the red marker is the Artist, moving in real time. The grid is oriented with N at top, S at bottom, E right, W left. Each point\'s label gives its rough compass position relative to the entrance where the Artist starts. Send notes telling the Artist which direction to head, and what to search for once they arrive -- when they make contact with a wrong object, its dot goes dark and a flash transmission appears below.');
+  document.getElementById('p2NoteInput').addEventListener('keydown', e => { if (e.key === 'Enter') sendNote('p2'); });
+}
+
+// ============================================================
+// ARTIST LOGIC
+// ============================================================
+
+function getKey() { return document.getElementById('groqKey') ? document.getElementById('groqKey').value.trim() : ''; }
+
+function updateKeyStatus() {
+  const key = getKey();
+  const el = document.getElementById('keyStatus');
+  if (!key) { el.textContent = 'No key -- offline fallback'; el.style.color = 'rgba(255,255,255,0.3)'; }
+  else if (!key.startsWith('gsk_')) { el.textContent = 'Key format wrong (should start gsk_)'; el.style.color = '#c0392b'; }
+  else { el.textContent = 'Key set'; el.style.color = 'rgba(29,158,117,0.9)'; }
+}
+
+function getCurrentRoom() { return ROOMS[currentRoomId]; }
+
+function updateRoomIndicator() {
+  const room = getCurrentRoom();
+  document.getElementById('roomName').textContent = room.name;
+  document.getElementById('roomExits').textContent = 'Exits: ' + Object.keys(room.exits).join(', ');
+}
+
+function detectMovement(action) {
+  const a = action.toLowerCase();
+  const dirMap = {
+    'north':'N','go north':'N','n':'N','head north':'N','move north':'N','walk north':'N',
+    'south':'S','go south':'S','s':'S','head south':'S','move south':'S','walk south':'S',
+    'east':'E','go east':'E','e':'E','head east':'E','move east':'E','walk east':'E',
+    'west':'W','go west':'W','w':'W','head west':'W','move west':'W','walk west':'W',
+  };
+  for (const [phrase, dir] of Object.entries(dirMap)) {
+    if (a === phrase || a.startsWith(phrase + ' ') || a.endsWith(' ' + phrase)) return dir;
+  }
+  return null;
+}
+
+const CONTACT_WORDS = ['touch','grab','pick up','take','hold','press','reach for','lift','examine closely','handle','feel','clutch','pick it up','take it'];
+const INSPECT_WORDS = [...CONTACT_WORDS, 'examine','inspect','look at','check','poke','open'];
+
+function detectObjectContact(action) {
+  const a = action.toLowerCase();
+  const hasContact = CONTACT_WORDS.some(w => a.includes(w));
+  if (!hasContact) return null;
+  const room = getCurrentRoom();
+  if (!room.object) return null;
+  const obj = OBJECTS[room.object];
+  if (obj.found) return null;
+  const mentioned = obj.aliases.some(w => a.includes(w));
+  if (mentioned || a.includes(' it') || a.includes('the object') || a.includes('the thing')) return obj;
+  return null;
+}
+
+function detectDecorContact(action) {
+  const a = action.toLowerCase();
+  const hasContact = INSPECT_WORDS.some(w => a.includes(w));
+  if (!hasContact) return null;
+  const room = getCurrentRoom();
+  const decorList = ROOM_DECOR[room.id] || [];
+  for (const decor of decorList) {
+    if (decor.aliases.some(w => a.includes(w))) return decor;
+  }
+  return null;
+}
+
+function detectSearch(action) {
+  const a = action.toLowerCase();
+  const searchWords = ['search','look around','examine','investigate','explore','scan','check','inspect','look at the room','look around the room'];
+  return searchWords.some(w => a.includes(w));
+}
+
+async function callGroq(systemPrompt, userMsg) {
+  const key = getKey();
+  if (!key || !key.startsWith('gsk_')) return null;
+  try {
+    const resp = await fetch(GROQ_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
+      body: JSON.stringify({
+        model: GROQ_MODEL, max_tokens: 900, temperature: 0.85,
+        messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userMsg }]
+      })
+    });
+    const data = await resp.json();
+    if (data.error) { console.warn('Groq error:', data.error.message); return null; }
+    return data.choices[0].message.content.trim();
+  } catch(e) { console.warn('Groq fetch failed:', e); return null; }
+}
+
+function buildSystemPrompt() {
+  const room = getCurrentRoom();
+  const foundObjects = Object.values(OBJECTS).filter(o => o.found).map(o => o.name).join(', ') || 'none yet';
+  const recentNotes = notes.slice(-3).map(n => (n.from === 'p2' ? 'P2' : 'Artist') + ': ' + n.text).join(' | ') || 'none';
+  const roomObject = room.object ? OBJECTS[room.object] : null;
+  const objectPresent = roomObject && !roomObject.found;
+  return `You are narrating the artist's side of a horror puzzle called the Lockdown in Saintalia. The artist is trapped in a sealed building. They must find five wrong objects to escape.
+
+CURRENT ROOM: ${room.name}
+ROOM DESCRIPTION: ${room.desc}
+AVAILABLE EXITS: ${Object.entries(room.exits).map(([d,r]) => d + ' to ' + ROOMS[r].name).join(', ')}
+${objectPresent ? 'WRONG OBJECT IN THIS ROOM: ' + roomObject.name + ' -- present but not yet found unless player searches or examines' : 'NO WRONG OBJECT IN THIS ROOM'}
+OBJECTS FOUND SO FAR: ${foundObjects}
+RECENT NOTES FROM P2: ${recentNotes}
+
+RULES:
+- Write vivid unsettling literary horror prose, between 250 and 350 words
+- Always mention available exits naturally, and describe their compass direction clearly (e.g. "a doorway to the north", "an opening to the east")
+- If there is a wrong object AND the player is searching or looking around, describe the wrong object vividly and make its wrongness unmistakable -- it should stand out clearly from the rest of the room's decor, even if the prose stays oblique and unsettling
+- If the player explicitly makes physical contact with the wrong object, end your response with a new line: OBJECT_TOUCHED
+- Do not include OBJECT_TOUCHED unless the action is explicit physical contact
+- Do not break character or explain game mechanics`;
+}
+
+const COMPASS_NAMES = { N: 'north', S: 'south', E: 'east', W: 'west' };
+
+function buildOfflineNarration(action, room, objectFound) {
+  const exits = Object.entries(room.exits).map(([d,r]) => 'a way ' + COMPASS_NAMES[d] + ' toward the ' + ROOMS[r].name).join(', and ');
+  if (objectFound) {
+    const obj = OBJECTS[room.object];
+    return `${room.desc} Your hand closes around it before you fully decide to reach -- ${obj.name}, here in the ${room.name.toLowerCase()}, exactly where it should not be. It is real. It is solid. It is wrong in a way that the rest of the room is not, and the wrongness does not fade now that you are touching it. If anything it sharpens, becomes more itself, as if your attention has fed it. Somewhere behind your eyes something shifts loose. There is a sound like a held breath, very far away, and then nothing. The room around you does not change, but it feels like it is waiting to see what you do next. To leave, ${exits}.`;
+  }
+  return `${room.desc} You take a slow breath and let your eyes move over everything -- the ordinary and the not-ordinary, side by side, refusing to announce which is which. Nothing reaches for you. Nothing moves that should not move, not this time. The building holds its shape around you, patient, listening to the sound of your own breathing as if it were unfamiliar. To continue, ${exits}.`;
+}
+
+async function artistAct() {
+  if (isThinking) return;
+  const input = document.getElementById('artistInput');
+  const action = input.value.trim();
+  if (!action) return;
+  input.value = '';
+
+  addEntry('Your action', action, 'action');
+
+  const moveDir = detectMovement(action);
+  if (moveDir) {
+    const room = getCurrentRoom();
+    if (room.exits[moveDir]) {
+      currentRoomId = room.exits[moveDir];
+      updateRoomIndicator();
+      // Sync new position to P2
+      if (S.conn && S.conn.open) {
+        S.conn.send({ type: 'position', roomId: currentRoomId });
+      }
+      const newRoom = getCurrentRoom();
+      isThinking = true; setThinking(true);
+      document.getElementById('actBtn').disabled = true;
+      input.disabled = true;
+      const system = buildSystemPrompt();
+      let narration = await callGroq(system, 'The artist moves ' + moveDir + ' into ' + newRoom.name + '. Describe what they find as they enter.');
+      if (!narration) narration = newRoom.desc + ' Exits: ' + Object.keys(newRoom.exits).join(', ') + '.';
+      addEntry('The building', narration, 'narrator');
+      storyHistory.push({ role: 'assistant', content: narration });
+    } else {
+      addEntry('The building', 'That way is sealed. The door handle turns freely but the door does not open -- not stuck, simply not opening.', 'narrator');
+    }
+    isThinking = false; setThinking(false);
+    document.getElementById('actBtn').disabled = false;
+    input.disabled = false;
+    return;
+  }
+
+  const contactObj = detectObjectContact(action);
+  const isSearch = detectSearch(action);
+  const room = getCurrentRoom();
+  const roomObj = room.object ? OBJECTS[room.object] : null;
+
+  // If the player pokes at ordinary decor (not the wrong object), give a flat, plain answer --
+  // no AI call needed, and it teaches the player what NOT to focus on.
+  if (!contactObj) {
+    const decor = detectDecorContact(action);
+    if (decor) {
+      const narration = 'There is nothing special about ' + decor.name + '.';
+      addEntry('The building', narration, 'narrator');
+      storyHistory.push({ role: 'user', content: action });
+      storyHistory.push({ role: 'assistant', content: narration });
+      return;
+    }
+  }
+
+  isThinking = true; setThinking(true);
+  document.getElementById('actBtn').disabled = true;
+  input.disabled = true;
+  storyHistory.push({ role: 'user', content: action });
+
+  const system = buildSystemPrompt();
+  let prompt = action;
+  if (isSearch && roomObj && !roomObj.found) prompt = action + ' [NOTE: the wrong object is present and should be described]';
+  if (contactObj) prompt = action + ' [NOTE: player making direct physical contact with ' + contactObj.name + ']';
+
+  let narration = await callGroq(system, prompt);
+  let objectTouched = false;
+
+  if (narration) {
+    objectTouched = narration.includes('OBJECT_TOUCHED');
+    narration = narration.replace(/\nOBJECT_TOUCHED.*$/m, '').trim();
+  } else {
+    narration = buildOfflineNarration(action, room, isSearch && roomObj && !roomObj.found);
+    if (contactObj) objectTouched = true;
+  }
+
+  addEntry('The building', narration, 'narrator');
+  storyHistory.push({ role: 'assistant', content: narration });
+
+  if ((objectTouched || contactObj) && roomObj && !roomObj.found) {
+    setTimeout(() => fireFlash(roomObj), 400);
+  }
+
+  isThinking = false; setThinking(false);
+  document.getElementById('actBtn').disabled = false;
+  input.disabled = false;
+}
+
+function fireFlash(obj) {
+  obj.found = true;
+  foundCount++;
+  const flashText = FLASH_CONTENT[obj.flashName];
+
+  addEntry('Flash -- ' + obj.flashName, flashText, 'flash');
+  storyHistory.push({ role: 'assistant', content: '[FLASH: ' + obj.flashName + '] ' + flashText });
+
+  // Sync flash to P2
+  if (S.conn && S.conn.open) {
+    S.conn.send({ type: 'flash', pointId: obj.pointId, flashName: obj.flashName, flashText, objName: obj.name });
+  }
+
+  if (foundCount === 5) {
+    setTimeout(() => {
+      addEntry('The building', 'Something shifts deep in the walls. A sound like held breath released after a long time. All three exits unlock simultaneously. The building is letting you go.', 'system');
+      if (S.conn && S.conn.open) S.conn.send({ type: 'complete' });
+    }, 800);
+  }
+}
+
+// ============================================================
+// P2 LOGIC
+// ============================================================
+
+function initGrid() {
+  const canvas = document.getElementById('gridCanvas');
+
+  // Place object dots at their room's fixed position
+  Object.values(OBJECTS).forEach(obj => {
+    const dot = document.createElement('div');
+    dot.className = 'pressure-dot'; dot.id = 'dot-' + obj.pointId;
+    dot.style.left = obj.gridX + '%'; dot.style.top = obj.gridY + '%';
+    canvas.appendChild(dot);
+    const num = document.createElement('div');
+    num.className = 'pressure-dot-num';
+    num.style.left = obj.gridX + '%'; num.style.top = (obj.gridY + 5) + '%';
+    num.textContent = obj.pointId;
+    canvas.appendChild(num);
+  });
+
+  // Place Artist marker at starting room (entrance)
+  moveMarker('entrance');
+}
+
+// Move the Artist marker to the correct room position
+function moveMarker(roomId) {
+  const pos = ROOM_POSITIONS[roomId];
+  if (!pos) return;
+  const marker = document.getElementById('artistMarker');
+  if (!marker) return;
+  marker.style.left = pos.x + '%';
+  marker.style.top = pos.y + '%';
+  marker.style.transition = 'left 0.4s ease, top 0.4s ease';
+}
+
+function updatePills() {
+  const container = document.getElementById('pointsStatus');
+  container.innerHTML = '';
+  Object.values(OBJECTS).forEach(obj => {
+    const pill = document.createElement('div');
+    pill.className = 'point-pill' + (obj.found ? ' touched' : '');
+    pill.id = 'pill-' + obj.pointId;
+    pill.textContent = obj.pointId + '. ' + obj.shortName + ' -- ' + obj.hint;
+    container.appendChild(pill);
+  });
+}
+
+function receiveFlash(data) {
+  // Mark dot dark
+  const dot = document.getElementById('dot-' + data.pointId);
+  if (dot) dot.classList.add('touched');
+
+  // Mark pill
+  const pill = document.getElementById('pill-' + data.pointId);
+  if (pill) pill.classList.add('touched');
+
+  // Add to flash log
+  const log = document.getElementById('flashLog');
+  const empty = document.getElementById('flashEmpty');
+  if (empty) empty.remove();
+
+  const item = document.createElement('div');
+  item.className = 'flash-item';
+  item.innerHTML = '<span class="flash-item-name">' + data.flashName + ' -- ' + data.objName + '</span>' + data.flashText;
+  log.appendChild(item);
+  log.scrollTop = log.scrollHeight;
+
+  addNoteBubble('noteThreadP2', 'sys', 'Point ' + data.pointId + ' dark -- ' + data.flashName);
+}
+
+function receiveComplete() {
+  document.getElementById('completionCard').classList.add('show');
+  addNoteBubble('noteThreadP2', 'sys', 'All five points dark. The building is releasing the artist.');
+}
+
+// ============================================================
+// NOTES -- SHARED
+// ============================================================
+
+function sendNote(from) {
+  const inputId = from === 'artist' ? 'artistNoteInput' : 'p2NoteInput';
+  const input = document.getElementById(inputId);
+  if (!input || !input.value.trim()) return;
+  const text = input.value.trim();
+  input.value = '';
+
+  notes.push({ from, text });
+
+  if (from === 'artist') {
+    addNoteBubble('noteThreadArtist', 'artist', text);
+  } else {
+    addNoteBubble('noteThreadP2', 'p2', text);
+  }
+
+  if (S.conn && S.conn.open) {
+    S.conn.send({ type: 'note', from, text });
+  }
+}
+
+function receiveNote(data) {
+  notes.push({ from: data.from, text: data.text });
+  if (S.role === 'artist') {
+    addNoteBubble('noteThreadArtist', data.from, data.text);
+  } else {
+    addNoteBubble('noteThreadP2', data.from, data.text);
+  }
+}
+
+function addNoteBubble(threadId, from, text) {
+  const thread = document.getElementById(threadId);
+  if (!thread) return;
+  const b = document.createElement('div');
+  if (from === 'sys') {
+    b.className = 'note-bubble sys';
+    b.textContent = text;
+  } else {
+    b.className = 'note-bubble ' + (from === 'p2' ? 'from-p2' : 'from-artist');
+    b.innerHTML = '<span class="note-from">' + (from === 'p2' ? 'P2' : 'Artist') + '</span>' + text;
+  }
+  thread.appendChild(b);
+  thread.scrollTop = thread.scrollHeight;
+}
+
+// ============================================================
+// UI HELPERS
+// ============================================================
+
+function addEntry(tag, text, type) {
+  const feed = document.getElementById('storyFeed');
+  if (!feed) return;
+  const entry = document.createElement('div');
+  entry.className = 'story-entry ' + type;
+  entry.innerHTML = '<span class="entry-tag">' + tag + '</span><div class="entry-body">' + text + '</div>';
+  feed.appendChild(entry);
+  feed.scrollTop = feed.scrollHeight;
+}
+
+function setThinking(on) {
+  const el = document.getElementById('thinkingRow');
+  if (el) el.classList.toggle('on', on);
+}
+</script>
+</body>
+</html>
