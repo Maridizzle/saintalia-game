@@ -12,7 +12,7 @@ Working principle for the whole plan: engine and content are separate. The engin
 
 ## Answered, after the vault arrived
 
-`saintalia_7.md` settled four of the six. Recorded here so nobody relitigates them.
+The vault and Maridizzle's decisions settled these. Recorded here so nobody relitigates them.
 
 1. **Scene order.** Five-act spine. Origin (The Opening), Layer 1 (The Lockdown, The Escape, The Sky Tears), Layer 2 (The Dream = beat 2-A, The 15 Questions = beat 2-B, The Branching Confessions, The Soul Tagging, four fusion outcomes), Layer 3, Layer 4, six endings. Full table in CLAUDE.md.
 
@@ -22,18 +22,17 @@ Working principle for the whole plan: engine and content are separate. The engin
 
 4. **Protagonists.** Tyvian and Sasha are **templates, not fixed characters.** Character creation stays. Consequence: the ten tangent guardrails are written as their specific biographies and need genericizing into shapes. **That rewrite is Maridizzle's.** Every tangent ships as data the engine reads, so her rewrite never touches code.
 
+5. **The Groq key. Host proxies.** Only the host ever holds a key. When the non-host needs narration, their device sends a `narrate-request`, the host calls Groq, and the host returns a `narrate-response`. The non-host never sees a key box. This makes the 15 Questions match every other scene and keeps the whole game on one person's free quota. Built in Phase 6.
+
+6. **Mobile matters, and it comes right after the split.** Every scene and bridge built after Phase 2 is built mobile-first. Nothing gets retrofitted.
+
 ## Still open
 
-5. **The Groq key in the 15 Questions.** That scene currently needs a key from BOTH players, because each side voices its own answers. Everything else is host-only. Three ways to reconcile, Maridizzle picks:
-   - **(a) Host proxies.** Non-host sends a `narrate-request`, host calls Groq, host returns a `narrate-response`. One key for the whole game. Recommended: it matches every other scene and only one person has to go get a key.
-   - **(b) Per-player keys for that scene only.** Works today, but the second player hits a key prompt mid-game.
-   - **(c) Non-host falls back to raw seed text.** Free, but half the game reads noticeably flatter.
+7. **Root `index.html`.** Pages will serve from `main` at root. Right now root has no `index.html`, so the Pages URL would 404 and the game would only be reachable at `/saintalia-v2.html`. Options: put the game at root, or put a redirect at root pointing into `game/`. (Blocks Phase 8.)
 
-6. **Root `index.html`.** Pages will serve from `main` at root. Right now root has no `index.html`, so the Pages URL would 404 and the game would only be reachable at `/saintalia-v2.html`. Options: put the game at root, or put a redirect at root pointing into `game/`. (Blocks Phase 7.)
+8. **Trigger collisions in the 15 Questions.** The vault claims Q4-B and Q7-B for BOTH Self as Threat A and B, and Q6-B and Q8-B for BOTH Conditional Survival B and The Connection Itself. The code picked one owner each, which strands Conditional Survival B on Q3-B alone and Self as Threat A on Q9-A alone. Maridizzle to settle. Also unassigned in the vault: Q7-A.
 
-7. **Trigger collisions in the 15 Questions.** The vault claims Q4-B and Q7-B for BOTH Self as Threat A and B, and Q6-B and Q8-B for BOTH Conditional Survival B and The Connection Itself. The code picked one owner each, which strands Conditional Survival B on Q3-B alone and Self as Threat A on Q9-A alone. Maridizzle to settle. Also unassigned in the vault: Q7-A.
-
-8. **The turn cap.** 15 questions exist, `G.totalTurns` is 10. Five never get asked. Intentional or an oversight?
+9. **The turn cap.** 15 questions exist, `G.totalTurns` is 10. Five never get asked. Intentional or an oversight?
 
 ## Content fixes only Maridizzle can make
 
@@ -41,7 +40,7 @@ Claude does not write story content. These are logged, not actioned.
 
 - **Lockdown flashes 2 and 3 are swapped.** The vault maps waterbottle to The Neural Network and compass to The Book. The code has them crossed. Point IDs are correct; only the flash text is wrong.
 - Genericizing the ten tangent guardrails (see item 4).
-- The bridge text covering The Escape, The Sky Tears and The Dream (see Phase 6).
+- The bridge text covering The Escape, The Sky Tears and The Dream (see Phase 7).
 - The coming-soon gate's copy.
 
 ## Phase 0 -- Inventory (read only) -- COMPLETE
@@ -87,15 +86,60 @@ Known bugs that MUST still be present at the end of Phase 1, because fixing them
 
 Do not touch: narration prompts, PeerJS config, Groq key handling, CHAR_DATA contents, any UI string.
 
-## Phase 2 -- Connection safety and state sync
+## Phase 2 -- Make it work on a phone
+
+Goal: the game is genuinely playable on a phone, and every scene built after this inherits the discipline instead of being retrofitted.
+
+This sits here on purpose. Phases 4 through 7 build four more scenes and three bridges. Doing mobile first means all of them are built mobile-first. Doing it last means retrofitting seven things at once.
+
+It cannot go inside Phase 1, because Phase 1's entire value is that nothing changes and the split can be trusted.
+
+### Already fine (audited, not assumed)
+
+The viewport tag is correct and permits pinch-zoom to 5x. `.btn-grid` and `.card-grid` use `auto-fill minmax()` and collapse on their own. `.g-body` already stacks below 800px. `.tabs` scrolls sideways. Most type uses `clamp()`.
+
+### The five real problems
+
+1. **Stat rows overflow.** `.stat-row { grid-template-columns: 150px 1fr 28px; gap: 1rem; }` needs about 350px before the five 24px pips are counted. An iPhone SE offers roughly 282px inside `.cc`'s padding. Stack the row under about 520px.
+
+2. **`height: 100vh` with `overflow: hidden` on the game screen.** On mobile browsers `100vh` includes the strip behind the address bar, so the bottom is clipped and unreachable. Move to `dvh` with a `vh` fallback for older browsers.
+
+3. **Touch targets under 44px.** `.pip` is 24px, `.phone-send` is 30px, `.avatar` is 26px. Character creation is almost entirely pip-tapping, so the pips matter most. Grow the hit area without necessarily growing the drawn pip.
+
+4. **Fixed-height threads.** `.holo-msg-area` and `.phone-thread` cap at 80px, `.note-thread` at 70px. On a phone that is roughly two lines, and notes are the primary interface during the Lockdown. Make them proportional on small screens.
+
+5. **The mural at `max-height: 35%`** of a stacked column may be close to unreadable on a phone. Needs a floor.
+
+### Steps
+
+1. Add breakpoints for phone widths. Keep the existing 800px and 480px queries; add one around 520px for the stat rows.
+2. Replace `100vh` with `100dvh` plus a `100vh` fallback.
+3. Raise every interactive target to at least 44px of touch area.
+4. Make the three threads proportional below the phone breakpoint.
+5. Give the mural a minimum height that survives stacking.
+6. Re-check the merged stylesheet for anything the three original blocks assumed about a wide screen.
+
+Do not touch: any game logic, any UI string, any narration prompt. This phase is CSS and markup only.
+
+### Gate (a real phone, not a narrow desktop window)
+
+- All three screens usable on a 320px-wide viewport with no horizontal scrolling anywhere.
+- Every stat pip tappable without zooming, and the full stat row visible.
+- Nothing clipped behind the address bar on the game screen. The bottom of the page is reachable.
+- Note threads readable without pinching. At least four lines visible.
+- The mural readable on the reality side.
+- Two real phones on two networks complete the Phase 1 gate run end to end.
+- Landscape does not break anything.
+
+## Phase 3 -- Connection safety and state sync
 
 Goal: fix the five confirmed bugs that make two-player play unreliable. Everything here is a known defect with a known line number. No new features.
 
-### 2a. Remove the Groq key from the wire
+### 3a. Remove the Groq key from the wire
 
 One-line deletion. The key is sent at line 1008, parked in `window.GAME_STATE`, and never read. Every Groq call site is gated on `isHost`. Removing it from the `begin` payload changes no behavior. This was written up as a decision in the old plan; it is not one.
 
-### 2b. Fix the double peer init
+### 3b. Fix the double peer init
 
 `goToStep()` calls `initPeer()`. The `window.goToStep` override then destroys that peer 300ms later and calls `initPeerWithCode()` with a different code. Two room codes appear in `#room-code-display`, 300ms apart, and only the second one works.
 
@@ -103,19 +147,19 @@ Fix: one initialization path. `initPeerWithCode()` is the correct one because it
 
 Then, and only then, add reconnect: `S.peer.reconnect()` on `disconnected`, a visible status line on both sides when the data channel drops, and a retry with the same room code on the join side. Call `destroy()` before nulling a peer in every error path.
 
-### 2c. Fix the `skipGroq` hang
+### 3c. Fix the `skipGroq` hang
 
 `skipGroq()` never sends `begin`, so the joiner sits on Step III forever when the host chooses offline narration. Send `begin` from both paths.
 
-### 2d. Transmit the joiner's choice
+### 3d. Transmit the joiner's choice
 
 Add a `player-choice` message. The joiner sends its choice, the host holds both, and only builds the narrator prompt once both have arrived. Add a wait state and an indicator on whichever side finished first. This is the one piece of cohesive dual narration that was never built.
 
-### 2e. Broadcast veil and energy
+### 3e. Broadcast veil and energy
 
 `veil-update` is already handled and never sent. Send it. Add an `energy-update` so the reality side's companion panel stops showing a hardcoded 100 percent.
 
-### 2f. Make host identity explicit
+### 3f. Make host identity explicit
 
 `S.action` decides who is host and is read off a lobby tab that stays clickable after connecting. Latch it at handshake and stop reading the tab.
 
@@ -131,11 +175,11 @@ Add a `player-choice` message. The joiner sends its choice, the host holds both,
 
 Do not touch: game logic, narration prompts, character data, scene content.
 
-## Phase 3 -- The scene engine
+## Phase 4 -- The scene engine
 
 Goal: the architecture that lets three scenes live in one app without clobbering each other. This is the heart of the three-into-one work.
 
-### 3a. Namespace everything
+### 4a. Namespace everything
 
 The three files independently define `S`, `G`, `CHAR_DATA`, `callGroq`, `addEntry`, `setThinking`, `launchGame`, `sendNote`, `receiveNote`, `GROQ_URL`, `GROQ_MODEL`. `addEntry` alone has three different argument orders. Concatenated, the last definition silently wins.
 
@@ -155,13 +199,13 @@ const SceneLockdown = {
 
 `ctx` carries the shared things a scene may read: role, both characters, the note thread, veil, energy, and the send function. Scenes never touch `S` or `G` directly.
 
-### 3b. The scene manager
+### 4b. The scene manager
 
 `scenes.js` holds the ordered scene list, mounts one at a time, and routes messages. Message envelope gets a `scene` field so a stale message from a finished scene cannot fire.
 
 Advancing requires BOTH sides to confirm, then broadcasts `scene-advance` so nobody is left behind.
 
-### 3c. Shared services
+### 4c. Shared services
 
 One `callGroq`. One `addEntry`, with one argument order, and the two odd ones rewritten to match. One note thread, one connection, one character creation. The character creation in the Lockdown and the 15 Questions is dropped from the merged app; v2's full version is the only one. The original files keep theirs and stay untouched.
 
@@ -172,7 +216,7 @@ One `callGroq`. One `addEntry`, with one argument order, and the two odd ones re
 - Mounting and unmounting the same scene five times leaves no duplicate listeners and no duplicate DOM.
 - `window` has no scene-owned globals on it.
 
-## Phase 4 -- Fold in The Lockdown
+## Phase 5 -- Fold in The Lockdown
 
 Goal: The Lockdown plays inside the merged app, using the shared connection and the shared characters.
 
@@ -196,7 +240,7 @@ Goal: The Lockdown plays inside the merged app, using the shared connection and 
 
 Do not touch: the five flash transmissions, the room descriptions, the object names. All of it is Maridizzle's text.
 
-## Phase 5 -- Fold in The 15 Questions
+## Phase 6 -- Fold in The 15 Questions
 
 Goal: The 15 Questions plays inside the merged app.
 
@@ -219,7 +263,7 @@ Goal: The 15 Questions plays inside the merged app.
 
 Do not touch: question text, seed text, tangent text.
 
-## Phase 6 -- Bridges, transitions, and the coming-soon gate
+## Phase 7 -- Bridges, transitions, and the coming-soon gate
 
 Goal: one continuous playthrough, Opening to gate.
 
@@ -263,7 +307,7 @@ A bridge is a short narrative interstitial standing in for a real beat that is n
 - Refreshing mid-game fails gracefully with a readable message rather than a white screen. (Real save and resume is backlog.)
 - The full run works with no Groq key at all.
 
-## Phase 7 -- Ship it
+## Phase 8 -- Ship it
 
 1. Resolve open question 6 (root `index.html`).
 2. Maridizzle creates `main` and sets it as the default branch.
@@ -272,7 +316,7 @@ A bridge is a short narrative interstitial standing in for a real beat that is n
 
 Gate: two people on two networks play the whole thing through the live URL.
 
-## Phase 8 -- Backlog (order to be set by Maridizzle)
+## Phase 9 -- Backlog (order to be set by Maridizzle)
 
 Each gets its own mini-plan and gate when its turn comes. None start without a go.
 
