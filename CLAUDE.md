@@ -199,7 +199,7 @@ Notes, mural, UI: `sendNote`, `receiveNote`, `addNoteToThread`, `addHoloMsg`, `a
 
 - Each question has two seeded answers (each pointing at a tangent) and two neutral answers from `NEUTRAL_SEEDS`. All four are shuffled so the seeded ones are not obvious.
 
-- A seeded answer fires one of 11 tangents in `TANGENTS`. The ASKER, not the answerer, chooses to pull the thread or let it pass. Pulling it makes the answerer speak a 4 to 6 sentence monologue.
+- A seeded answer fires one of 10 tangents in `TANGENTS`. The ASKER, not the answerer, chooses to pull the thread or let it pass. Pulling it makes the answerer speak a 4 to 6 sentence monologue.
 
 - Groq is given the seed or tangent text as a guardrail and told to expand it, never quote it. With no key it falls back to printing the raw seed.
 
