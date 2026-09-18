@@ -218,12 +218,29 @@ onMessage('scene-advance', (data) => {
 
 // ---- DEBUG ----
 // The Opening has no end condition yet, so without this there is no way to
-// exercise mount and unmount. Goes away once real transitions land in
-// PLAN.md Phase 8.
+// reach the Lockdown at all, let alone exercise mount and unmount. Goes away
+// once real transitions land in PLAN.md Phase 8.
 function debugAdvance() {
   if (!DEBUG) {
     console.warn('[saintalia] debugAdvance is only available with DEBUG on');
     return;
   }
   doAdvance();
+}
+
+// A button, because typing debugAdvance() into a phone's console is not a
+// thing anyone should have to do. Floats bottom-left, out of the way of the
+// debug panel. Disappears entirely when DEBUG is false.
+if (DEBUG) {
+  window.addEventListener('DOMContentLoaded', () => {
+    const b = document.createElement('button');
+    b.id = 'debug-next-scene';
+    b.textContent = 'DEBUG: next scene';
+    b.style.cssText = 'position:fixed;bottom:1rem;left:1rem;z-index:9999;'
+      + 'font-family:monospace;font-size:0.7rem;padding:0.5rem 0.7rem;'
+      + 'background:rgba(0,0,0,0.8);color:rgba(255,255,255,0.5);'
+      + 'border:1px solid rgba(255,255,255,0.15);cursor:pointer;min-height:44px;';
+    b.onclick = () => debugAdvance();
+    document.body.appendChild(b);
+  });
 }

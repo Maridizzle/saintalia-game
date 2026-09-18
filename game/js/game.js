@@ -75,7 +75,11 @@ const MURAL_LAYERS = [
 // still lives in this file; js/scenes/opening.js is a thin adapter over it.
 function launchActualGame() {
   document.body.innerHTML = '';
-  setSceneOrder(['opening']);
+
+  // The run, in play order. The Escape and The Sky Tears bridges and The
+  // Dream go in here as they are built. See PLAN.md "Current priority".
+  setSceneOrder(['opening', 'lockdown']);
+
   mountScene('opening');
 }
 

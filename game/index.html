@@ -123,7 +123,8 @@
     character      registers its 'character' handler at load
     narrator       defines only. Calls into game.js at runtime, never at load.
     game           registers its handlers at load, wrapped in forScene
-    scenes/opening registers itself, so it goes last
+    data/scenes/*  scene content, read by the scene that follows it
+    js/scenes/*    each registers itself, so they go last
 -->
 <script src="data/char-data.js"></script>
 <script src="js/connection.js"></script>
@@ -131,7 +132,9 @@
 <script src="js/character.js"></script>
 <script src="js/narrator.js"></script>
 <script src="js/game.js"></script>
+<script src="data/scenes/lockdown.js"></script>
 <script src="js/scenes/opening.js"></script>
+<script src="js/scenes/lockdown.js"></script>
 
 </body>
 </html>
