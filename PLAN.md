@@ -26,6 +26,14 @@ character creation -> the Opening -> the Lockdown -> the 15 Questions -> coming 
 
 Order of attack: **Phase 3, then 4, then 5, then 6, then the bridge and gate from Phase 8.**
 
+**STATUS: all of that is built.** The run mounts end to end:
+
+```
+opening -> lockdown -> escape -> skytears -> questions -> coming-soon
+```
+
+Verified by `node game/test/loadtest.js`, which mounts every scene in order as both roles. What remains is Maridizzle's: play it on two devices, write the two bridges and the gate copy, and fix the swapped Lockdown flashes.
+
 **Phase 7, The Dream, is DEFERRED** until that run works end to end. It is still going to be built, just not first.
 
 Two things that follow from this, both deliberate and both temporary:

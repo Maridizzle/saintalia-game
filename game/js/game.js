@@ -76,9 +76,16 @@ const MURAL_LAYERS = [
 function launchActualGame() {
   document.body.innerHTML = '';
 
-  // The run, in play order. The Escape and The Sky Tears bridges and The
-  // Dream go in here as they are built. See PLAN.md "Current priority".
-  setSceneOrder(['opening', 'lockdown', 'questions']);
+  // The run, in play order. The Dream slots in between skytears and
+  // questions when Phase 7 builds it. See PLAN.md "Current priority".
+  setSceneOrder([
+    'opening',      // the blink, the photo, the misdial
+    'lockdown',     // the building seals, five wrong objects
+    'escape',       // bridge, unwritten
+    'skytears',     // bridge, unwritten
+    'questions',    // beat 2-B
+    'coming-soon'   // the end of what exists
+  ]);
 
   mountScene('opening');
 }
@@ -148,6 +155,8 @@ function buildGameScreen(root) {
           <input class="custom-input" id="fantasyCustom" placeholder="Or write your own action..." />
           <button class="custom-btn" id="fantasyCustomBtn" onclick="submitCustom('fantasy')" disabled>Act</button>
         </div>
+        <button class="btn-primary opening-exit" id="openingExit" style="display:none" onclick="bridgeContinue(this)">The building seals</button>
+        <div class="bridge-wait" id="bridgeWait" style="display:none">Both of you have to step through.</div>
       </div>
     </div>
     ` : `
@@ -299,6 +308,8 @@ function buildGameScreen(root) {
           <input class="custom-input" id="realityCustom" placeholder="Or write your own action..." />
           <button class="custom-btn" id="realityCustomBtn" onclick="submitCustom('reality')" disabled>Act</button>
         </div>
+        <button class="btn-primary opening-exit" id="openingExit" style="display:none" onclick="bridgeContinue(this)">The building seals</button>
+        <div class="bridge-wait" id="bridgeWait" style="display:none">Both of you have to step through.</div>
       </div>
     </div>
     ` : `
@@ -407,6 +418,7 @@ async function beginOpeningScene() {
 
     if (S.role === 'reality') setTimeout(() => showCorruptedImage(), 1200);
     if (S.role === 'fantasy') setTimeout(() => veilBlink(), 800);
+    revealOpeningExit();
 
   } else {
     // Joiner waits -- narrator-update arrives via setupGameMessageHandler
@@ -548,6 +560,7 @@ onMessage('narrator-update', forScene('opening', (data) => {
     if (S.role === 'reality') setTimeout(() => showCorruptedImage(), 1200);
     if (S.role === 'fantasy') setTimeout(() => veilBlink(), 800);
     G.openingDone = true;
+    revealOpeningExit();
   }
 }));
 
@@ -754,6 +767,15 @@ const THINKING_TEXT = {
   fantasy: 'The veil stirs...',
   reality: 'Something moves in the brushstrokes...'
 };
+
+// PHASE 8. The Opening's end condition. The vault says the building seals
+// the moment the connection is established, but it names no turn count, so
+// Claude does not pick one. The control appears once the opening beat has
+// landed and the PLAYERS decide when to step through. Both must press it.
+function revealOpeningExit() {
+  const b = document.getElementById('openingExit');
+  if (b) b.style.display = 'block';
+}
 
 function setThinking(on, msg) {
   const el = document.getElementById('privateThink');

@@ -1399,3 +1399,61 @@ body.theme-artist .q-wrap .empty-state { color:#8a7f68; }
   .q-wrap .q-btn, .q-wrap .a-btn, .q-wrap .tangent-btn { min-height:44px; }
   .q-wrap .tangent-btn { display:inline-flex; align-items:center; }
 }
+
+
+/* ============================================================
+   11. BRIDGES AND THE GATE  (Phase 8)
+
+   One shape for every interstitial. An UNWRITTEN bridge renders its token in
+   a loud dashed panel, on purpose: at 2am, playing through at speed, an
+   unfinished beat must be impossible to mistake for a finished one.
+============================================================ */
+
+.bridge-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+}
+
+.bridge { width: 100%; max-width: 620px; text-align: center; }
+
+.bridge-layer { font-family:'Cinzel',serif; font-size:0.62rem; letter-spacing:0.4em; text-transform:uppercase; color:var(--mist-light); opacity:0.5; margin-bottom:0.8rem; }
+.bridge-title { font-family:'Cinzel Decorative',cursive; font-size:clamp(1.6rem,6vw,2.6rem); color:var(--gold-light); text-shadow:0 0 30px rgba(var(--gold-rgb),0.35); line-height:1.15; margin-bottom:1.6rem; }
+
+/* Written. Plain prose, nothing shouting. */
+.bridge-text { font-size:1.05rem; line-height:1.8; color:var(--parchment); text-align:left; margin-bottom:2rem; }
+.bridge-text p { margin-bottom: 1rem; }
+
+/* Unwritten. Shouting on purpose. */
+.bridge-tbd {
+  border: 2px dashed rgba(192,57,43,0.55);
+  background: rgba(139,26,26,0.07);
+  padding: 1.5rem 1.2rem;
+  margin-bottom: 2rem;
+}
+.bridge-tbd-token { font-family:'Share Tech Mono',monospace; font-size:clamp(0.95rem,3.5vw,1.3rem); letter-spacing:0.12em; color:#c0392b; word-break:break-all; margin-bottom:0.8rem; }
+.bridge-tbd-note { font-family:'Cinzel',serif; font-size:0.72rem; letter-spacing:0.25em; text-transform:uppercase; color:#c0392b; opacity:0.8; margin-bottom:0.9rem; }
+.bridge-tbd-vault { font-size:0.92rem; font-style:italic; line-height:1.65; color:var(--bone); opacity:0.6; text-align:left; }
+
+.bridge-continue { max-width: 380px; margin: 0 auto 0.6rem; display: block; }
+.bridge-wait { font-family:'Cinzel',serif; font-size:0.68rem; letter-spacing:0.22em; text-transform:uppercase; color:var(--bone); opacity:0.5; animation:status-pulse 2s ease-in-out infinite; }
+
+/* The Opening's exit control lives inside its choice area, not a bridge. */
+.opening-exit { margin-top: 0.6rem; }
+
+/* ---- RUN SUMMARY on the gate ---- */
+.run-summary { border:1px solid rgba(var(--gold-rgb),0.18); background:rgba(0,0,0,0.3); padding:1rem 1.2rem; text-align:left; max-width:380px; margin:0 auto; }
+.run-summary-label { font-family:'Cinzel',serif; font-size:0.62rem; letter-spacing:0.3em; text-transform:uppercase; color:var(--gold); opacity:0.6; margin-bottom:0.8rem; text-align:center; }
+.run-stat { display:flex; justify-content:space-between; gap:1rem; font-size:0.92rem; padding:0.35rem 0; border-bottom:1px solid rgba(255,255,255,0.05); }
+.run-stat:last-child { border-bottom:none; }
+.run-stat span:first-child { color:var(--bone); opacity:0.7; }
+.run-stat span:last-child { font-family:'Cinzel',serif; color:var(--gold-light); }
+
+@media (max-width: 700px) {
+  .bridge-wrap { padding: 1.2rem 0.8rem; align-items: flex-start; }
+  .bridge-continue { max-width: none; min-height: 44px; }
+}

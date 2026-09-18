@@ -167,5 +167,31 @@ if (registered.includes('questions')) {
   check('pool starts full', run('Q.usedIds.length'), 0);
 }
 
+// ---- THE FULL RUN ----
+console.log('\nTHE FULL RUN');
+const declaredOrder = (fs.readFileSync('game/js/game.js','utf8')
+  .match(/setSceneOrder\(\[([\s\S]*?)\]\)/) || [,''])[1]
+  .match(/'[a-z-]+'/g) || [];
+const runOrder = declaredOrder.map(s => s.replace(/'/g,''));
+check('order in launchActualGame', runOrder.join(' -> '));
+check('every scene in order exists',
+  runOrder.filter(id => !registered.includes(id)).join(',') || 'yes', 'yes');
+check('every registered scene used',
+  registered.filter(id => id !== '__boom' && !runOrder.includes(id)).join(',') || 'yes', 'yes');
+
+// Walk the whole run, mounting each scene in turn as both roles.
+['reality','fantasy'].forEach(role => {
+  run("S.role='" + role + "'");
+  run('setSceneOrder(' + JSON.stringify(runOrder) + ')');
+  let ok = true;
+  runOrder.forEach(id => { if (run("mountScene('" + id + "')") !== true) ok = false; });
+  check('full run mounts as ' + role, ok, true);
+});
+
+// Unwritten bridges must be obvious.
+check('bridges unwritten show token', run(`
+  BRIDGE_DEFS.every(d => d.text === null && d.token && d.vaultBeat) ? 'yes, ' + BRIDGE_DEFS.length + ' TBD' : 'some written'`));
+check('gate copy still TBD', run("COMING_SOON_DEF.text === null ? 'yes' : 'written'"), 'yes');
+
 console.log('\n' + (failures ? failures + ' FAILURE(S)' : 'all checks passed') + '\n');
 process.exit(failures ? 1 : 0);
