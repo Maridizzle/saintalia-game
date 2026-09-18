@@ -1003,3 +1003,156 @@ body.screen-game .custom-row { display:flex; gap:0.4rem; margin-top:0.4rem; }
 ::-webkit-scrollbar { width:3px; }
 ::-webkit-scrollbar-track { background:transparent; }
 ::-webkit-scrollbar-thumb { background:rgba(var(--gold-rgb),0.15); }
+
+
+/* ============================================================
+   8. PHONES  (Phase 2)
+
+   Everything above this line is the Phase 1 split, moved verbatim from
+   saintalia-v2.html. Everything below is new and additive, kept in one
+   block so it is easy to read, easy to argue with, and easy to revert.
+   Nothing above was deleted.
+
+   Breakpoints, and why each one:
+     unconditional   dvh units, because 100vh is wrong on every phone
+     800px           the layout stacks (this breakpoint already existed)
+     700px           touch targets, thread heights, iOS input zoom
+     520px           stat rows stack
+
+   Audited problems this fixes, with the numbers:
+     1. .stat-row needed ~350px. An iPhone SE offers ~282px inside .cc.
+     2. 100vh counts the strip behind the address bar, so the bottom of the
+        game screen was clipped and unreachable under overflow: hidden.
+     3. Pips were 24px and the phone send button 30px, against a 44px
+        minimum touch target.
+     4. The three message threads were pinned at 70 to 80px, about two
+        lines, and notes are the primary interface during the Lockdown.
+     5. The mural was capped at 35% of a column that no longer has a
+        height once the grid stacks.
+     6. The stacked layout inherited flex:1 and overflow:hidden from a
+        three column design that assumed a fixed viewport height. Left
+        alone, the story feeds would collapse to nothing.
+============================================================ */
+
+/* ---- 8.1 Viewport units ----
+   dvh tracks the visible viewport as mobile browser chrome slides away.
+   The vh line stays first as the fallback for anything that predates dvh. */
+body.screen-lobby { min-height: 100vh; min-height: 100dvh; }
+body.screen-char  { min-height: 100vh; min-height: 100dvh; }
+body.screen-game  { height: 100vh; height: 100dvh; }
+body.screen-lobby::after { height: 100vh; height: 100dvh; }
+
+
+/* ---- 8.2 Stacked layout (800px) ----
+   The grid already collapsed to one column here. What it did not do is
+   give up the assumptions that came with a fixed viewport height. */
+@media (max-width: 800px) {
+
+  /* Let the page scroll as one document instead of trapping the scroll in
+     a nested container. This is the behavior a phone expects. */
+  html.screen-game, body.screen-game {
+    height: auto;
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+  .g-body { overflow: visible; }
+  .side, .companion-panel, .center-col { overflow: visible; }
+
+  /* Order: your own panel first, the shared middle second, the companion
+     last. On a phone you should not have to scroll past the other player
+     to reach your own controls. */
+  .side.your-side { order: 1; }
+  .center-col     { order: 2; }
+  .companion-panel{ order: 3; }
+
+  /* flex:1 inside an auto-height column resolves to zero. Give the feeds a
+     real floor and a ceiling so a long scene cannot push the controls off
+     the bottom of the world. */
+  .private-feed, .story-feed {
+    min-height: 28vh;
+    max-height: 55vh;
+    overflow-y: auto;
+  }
+  .private-feed-section, .shared-feed-section { min-height: 0; }
+
+  /* The mural loses its percentage ceiling the moment the grid stacks. */
+  .mural-section { max-height: none; }
+  .mural-canvas  { min-height: 240px; }
+  #muralSvg      { min-height: 240px; }
+
+  .companion-body { padding: 1.2rem 1rem; }
+}
+
+
+/* ---- 8.3 Phone (700px): touch, threads, and the iOS zoom trap ---- */
+@media (max-width: 700px) {
+
+  /* iOS Safari force-zooms the page when you focus an input under 16px and
+     does not zoom back out. Three of these were under it: .holo-input at
+     about 12px, .note-input-center at 14px, .phone-input at about 14.7px.
+     Those three are the note controls, the thing players touch most. */
+  input, textarea, select { font-size: 16px; }
+
+  /* 44px minimum touch target. Applied as min-height so text still wraps
+     naturally inside taller buttons. */
+  .choice-btn, .sel-btn, .pers-opt, .action-tab, .tab,
+  .btn-primary, .btn-secondary, .btn-next, .btn-back,
+  .custom-btn, .custom-confirm, .note-send-center, .holo-send {
+    min-height: 44px;
+  }
+  .choice-btn { padding: 0.55rem 0.7rem; }
+  .sel-btn, .pers-opt { padding: 0.7rem 0.9rem; }
+
+  .phone-send { width: 44px; height: 44px; font-size: 1.1rem; }
+
+  /* Threads were fixed at 70 to 80px. Proportional, with a floor, so they
+     are readable without pinching. */
+  .holo-msg-area, .phone-thread { max-height: 26vh; min-height: 110px; }
+  .note-thread { max-height: 30vh; min-height: 110px; }
+
+  /* The card grids drop to one column rather than squeezing two. */
+  .card-grid { grid-template-columns: 1fr; }
+  .btn-grid  { grid-template-columns: 1fr; }
+
+  .cc { padding: 1.5rem 0.9rem 3rem; }
+  .lobby { padding: 1.5rem 1rem; }
+
+  /* Thin scrollbars are invisible and unusable on a touch screen. */
+  ::-webkit-scrollbar { width: 6px; }
+}
+
+
+/* ---- 8.4 Small phones (520px): stat rows ----
+   150px + 28px + two 1rem gaps is 210px of fixed width before the five
+   pips are counted. Stack the label above the pips instead. */
+@media (max-width: 520px) {
+
+  .stat-row {
+    grid-template-columns: 1fr auto;
+    gap: 0.4rem 0.7rem;
+    padding-bottom: 0.6rem;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .stat-row > div:first-child { grid-column: 1 / -1; }
+
+  /* 5 x 44 plus four 4px gaps is 236px, and an iPhone SE leaves about
+     282px inside .cc's padding. Fits with the value column. */
+  .pip { width: 44px; height: 44px; }
+  .pips { gap: 4px; }
+
+  .stat-desc-sm { font-size: 0.82rem; }
+  .role-cards { grid-template-columns: 1fr; }
+  .action-tabs { grid-template-columns: 1fr; }
+  .appear-grid { grid-template-columns: 1fr; }
+}
+
+
+/* ---- 8.5 Landscape phones ----
+   Short and wide. The feeds should not each demand 28vh of a 375px tall
+   viewport, or nothing else fits. */
+@media (max-height: 500px) and (orientation: landscape) {
+  .private-feed, .story-feed { min-height: 40vh; max-height: 60vh; }
+  .holo-msg-area, .phone-thread, .note-thread { max-height: 32vh; min-height: 70px; }
+  .mural-canvas, #muralSvg { min-height: 180px; }
+}
