@@ -15,12 +15,10 @@
 // byte for byte what body.theme-fantasy and body.theme-artist already set,
 // and a body rule beats a :root rule for anything inside body.
 //
-// NOTE FOR PHASE 1 STEP 4: initCharScreen() at the bottom registers the
-// SECOND of three live conn.on('data') handlers. The other two are in
-// connection.js and game.js. The plan calls for collapsing all three into
-// one dispatcher, but it also says to show the diff and explain it before
-// applying. So it is left alone here, exactly as it was, pending that
-// review. Do not "fix" it in passing.
+// PHASE 1 STEP 4, DONE. initCharScreen used to register the second of three
+// live conn.on('data') handlers. All three are collapsed into the single
+// dispatcher in connection.js. This file now registers its one message type,
+// `character`, at the bottom via onMessage.
 // ============================================================
 
 // Pre-generated names
@@ -420,13 +418,18 @@ function checkBothReady() {
 function initCharScreen() {
   S.charTab = 0;
   S.charSelections = { name:'', race:null, job:null, stats:{}, appearance:{}, personality:{}, statPoints:12, statBonuses:{} };
-  if (S.conn) {
-    S.conn.on('data', (data) => {
-      if (data.type === 'character') {
-        S.otherCharacter = data.character;
-        checkBothReady();
-      }
-    });
-  }
   initStatPips();
 }
+
+// PHASE 1 STEP 4. This registration used to live inside initCharScreen as a
+// second conn.on('data') listener, which meant it stayed live for the whole
+// session and also re-registered every time the char screen was built.
+// Registered once here at load, routed through the one dispatcher.
+//
+// Registering before the screen exists is safe: if the other player finishes
+// first, S.otherCharacter is set and checkBothReady no-ops because
+// S.myCharacter is still null. finalizeCharacter calls it again afterwards.
+onMessage('character', (data) => {
+  S.otherCharacter = data.character;
+  checkBothReady();
+});

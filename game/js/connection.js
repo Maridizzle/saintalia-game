@@ -51,7 +51,13 @@ const S = {
   roomCode: null,
   groqKey: '',
   action: 'create',
-  connected: false
+  connected: false,
+
+  // PHASE 3f. The one source of truth for who narrates. Latched in
+  // setupConnection from which side opened the connection, never re-read from
+  // the lobby tab. Defaults true so a client that somehow reaches the game
+  // screen without a connection still narrates rather than waiting forever.
+  isHost: true
 };
 
 // ---- SCREEN CLASS ----
@@ -87,7 +93,22 @@ function selectRole(role) {
 function goToStep(stepId) {
   document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
   document.getElementById(stepId).classList.add('active');
-  if (stepId === 'step-connect') initPeer();
+
+  // PHASE 3b. This used to call initPeer(), and then a window.goToStep
+  // override at the bottom of the file destroyed that peer 300ms later and
+  // called initPeerWithCode() with a DIFFERENT code. Two room codes appeared
+  // in #room-code-display, 300ms apart, and only the second one was joinable.
+  // That was the silent join failure.
+  //
+  // Now there is one path. initPeerWithCode registers the peer ID the joiner
+  // actually targets, so it is the correct one to keep.
+  //
+  // The !S.peer guard matters too: going back to Change Sides and forward
+  // again used to destroy the live peer and mint a new code, stranding
+  // anyone who already had the old one.
+  if (stepId === 'step-connect' && !S.peer) {
+    initPeerWithCode(generateRoomCode());
+  }
 }
 
 // ---- ACTION TABS ----
@@ -210,17 +231,34 @@ function initPeerWithCode(code) {
     setupConnection(conn, 'host');
   });
 
+  // PHASE 3b. Reconnect. The broker drops idle connections and phones drop
+  // wifi. Without this the game just silently stopped working.
+  S.peer.on('disconnected', () => {
+    dbg('state', 'broker disconnected, reconnecting');
+    setCreateStatus('The veil is fraying. Reaching back through...', 'waiting');
+    try { S.peer.reconnect(); } catch(e) { /* peer already destroyed */ }
+  });
+
   S.peer.on('error', (err) => {
     if (err.type === 'unavailable-id') {
-      // Code already taken — generate new one
+      // Code already taken -- generate new one
       const newCode = generateRoomCode();
       setTimeout(() => initPeerWithCode(newCode), 500);
       return;
     }
     setCreateStatus('The veil resists: ' + err.message, 'error');
     dbg('state', 'error: ' + err.type);
-    S.peer = null;
+    destroyPeer();
   });
+}
+
+// PHASE 3b. Every error path used to do S.peer = null without destroy(),
+// which leaks a live peer holding its ID on the broker. The next attempt to
+// register the same ID then fails with unavailable-id against your own ghost.
+function destroyPeer() {
+  if (!S.peer) return;
+  try { S.peer.destroy(); } catch(e) { /* already gone */ }
+  S.peer = null;
 }
 
 // ---- JOIN ROOM ----
@@ -238,7 +276,7 @@ function joinRoom() {
   document.getElementById('btn-join').disabled = true;
   dbg('state', 'joining ' + targetId);
 
-  if (S.peer) { S.peer.destroy(); S.peer = null; }
+  destroyPeer();
 
   S.peer = new Peer({
     host: '0.peerjs.com',
@@ -260,11 +298,22 @@ function joinRoom() {
     setupConnection(conn, 'joiner');
   });
 
+  // PHASE 3b. Same reconnect treatment as the host side, and a readable
+  // message instead of a hang when the code simply does not exist.
+  S.peer.on('disconnected', () => {
+    dbg('state', 'broker disconnected, reconnecting');
+    setJoinStatus('The veil is fraying. Reaching back through...', 'waiting');
+    try { S.peer.reconnect(); } catch(e) { /* peer already destroyed */ }
+  });
+
   S.peer.on('error', (err) => {
-    setJoinStatus('Could not find the veil: ' + err.message, 'error');
+    const msg = err.type === 'peer-unavailable'
+      ? 'No veil is open on that code. Check it with your companion, letter for letter.'
+      : 'Could not find the veil: ' + err.message;
+    setJoinStatus(msg, 'error');
     document.getElementById('btn-join').disabled = false;
     dbg('state', 'join error: ' + err.type);
-    S.peer = null;
+    destroyPeer();
   });
 }
 
@@ -272,6 +321,14 @@ function joinRoom() {
 
 function setupConnection(conn, role) {
   dbg('conn', role + ' - opening...');
+
+  // PHASE 3f. Host identity used to be read off S.action, which comes from a
+  // lobby tab that stays clickable after you are connected. Click the wrong
+  // tab mid-game and a client decided it was the host. Latch it here instead,
+  // from which side actually opened the connection, and never read the tab
+  // again.
+  S.isHost = (role === 'host');
+  dbg('role', S.role + (S.isHost ? ' (host)' : ' (joiner)'));
 
   conn.on('open', () => {
     S.connected = true;
@@ -282,56 +339,111 @@ function setupConnection(conn, role) {
     conn.send({ type: 'handshake', role: S.role, msg: 'The veil holds.' });
   });
 
-  conn.on('data', (data) => {
-    handleMessage(data);
-  });
+  // PHASE 1 STEP 4 / PHASE 3. ONE data listener for the whole session.
+  // There used to be three, registered in connection.js, character.js and
+  // game.js, and all three stayed live forever. After the game screen was
+  // built the first two were still listening against a DOM that no longer
+  // existed. Now every file registers its own message types into the
+  // dispatcher below instead of adding another listener.
+  conn.on('data', dispatchMessage);
 
   conn.on('close', () => {
     S.connected = false;
     dbg('conn', 'closed');
-    if (document.getElementById('step-ready').classList.contains('active')) {
-      // Already in game prep -- show warning
-    }
+    setLinkLost('The veil tore. The connection dropped.');
   });
 
   conn.on('error', (err) => {
     dbg('conn', 'error: ' + err);
+    setLinkLost('Something went wrong in the veil: ' + (err && err.message ? err.message : err));
   });
 }
 
-function handleMessage(data) {
+// ---- MESSAGE DISPATCHER ----
+// PHASE 1 STEP 4. Replaces the three separate conn.on('data') registrations.
+// Every message type is routed by name. A type nobody claimed is logged
+// rather than silently swallowed, which is how the dead veil-update branch
+// hid for so long.
+
+const MESSAGE_HANDLERS = {};
+
+function onMessage(type, fn) {
+  if (!MESSAGE_HANDLERS[type]) MESSAGE_HANDLERS[type] = [];
+  MESSAGE_HANDLERS[type].push(fn);
+}
+
+function dispatchMessage(data) {
+  if (!data || !data.type) {
+    console.warn('[saintalia] message with no type:', data);
+    return;
+  }
   dbg('state', 'msg: ' + data.type);
 
-  if (data.type === 'handshake') {
-    // Both sides connected
-    S.connected = true;
-
-    // Update UI
-    if (S.action === 'create') {
-      setCreateStatus('Connected. Both sides of the veil are present.', 'connected');
-      document.getElementById('btn-waiting').textContent = 'Connected — Proceeding...';
-      document.getElementById('btn-waiting').disabled = true;
-    } else {
-      setJoinStatus('The veil holds. You are through.', 'connected');
-    }
-
-    // Brief pause then advance to step 3
-    setTimeout(() => {
-      goToStep('step-ready');
-    }, 1200);
+  const handlers = MESSAGE_HANDLERS[data.type];
+  if (!handlers || !handlers.length) {
+    console.warn('[saintalia] no handler registered for message type:', data.type);
+    return;
   }
 
-  if (data.type === 'begin') {
-    // Host told us to begin -- navigate to game
-    window.GAME_STATE = data.gameState;
-    launchGame();
-  }
+  // One throwing handler must not stop the others, or a render error in one
+  // panel silently kills the turn loop.
+  handlers.forEach(fn => {
+    try { fn(data); }
+    catch (e) { console.error('[saintalia] handler failed for "' + data.type + '"', e); }
+  });
 }
+
+// Shown on whichever lobby panel is live, or as a banner once the game has
+// started and the lobby DOM is gone.
+function setLinkLost(msg) {
+  const create = document.getElementById('create-status-area');
+  const join = document.getElementById('join-status-area');
+  if (create || join) {
+    if (S.isHost && create) setCreateStatus(msg, 'error');
+    else if (join) setJoinStatus(msg, 'error');
+    return;
+  }
+  let banner = document.getElementById('link-lost');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'link-lost';
+    banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9998;padding:0.5rem;text-align:center;font-family:Cinzel,serif;font-size:0.8rem;letter-spacing:0.15em;background:rgba(139,26,26,0.92);color:#f5efe0;';
+    document.body.appendChild(banner);
+  }
+  banner.textContent = msg;
+}
+
+// ---- LOBBY MESSAGE HANDLERS ----
+
+onMessage('handshake', () => {
+  S.connected = true;
+
+  if (S.isHost) {
+    setCreateStatus('Connected. Both sides of the veil are present.', 'connected');
+    const btn = document.getElementById('btn-waiting');
+    if (btn) { btn.textContent = 'Connected, proceeding...'; btn.disabled = true; }
+  } else {
+    setJoinStatus('The veil holds. You are through.', 'connected');
+  }
+
+  setTimeout(() => goToStep('step-ready'), 1200);
+});
+
+onMessage('begin', (data) => {
+  // Host told us to begin -- navigate to game.
+  // PHASE 3a: this payload no longer carries a Groq key. See beginGame.
+  window.GAME_STATE = data.gameState;
+  launchGame();
+});
 
 // ---- STEP 3: GROQ KEY ----
 
+// PHASE 3c. This used to launch the host into character creation without
+// ever sending `begin`, so choosing "Continue without AI narration" left the
+// other player sitting on Step III forever. Both paths send it now.
 function skipGroq() {
   S.groqKey = '';
+  sendBegin();
   launchGame();
 }
 
@@ -342,19 +454,19 @@ function beginGame() {
     return;
   }
   S.groqKey = key;
-
-  // Tell the other side to begin
-  if (S.conn && S.conn.open) {
-    S.conn.send({
-      type: 'begin',
-      gameState: {
-        role_host: S.role,
-        groqKey: S.groqKey
-      }
-    });
-  }
-
+  sendBegin();
   launchGame();
+}
+
+// PHASE 3a. The Groq key used to ride along in this payload. The receiver
+// parked it in window.GAME_STATE and never read it into S.groqKey, and every
+// Groq call site is gated on the host, so the joiner never called Groq at
+// all. The key crossed the wire in plaintext and did nothing. Removing it
+// changes no behavior.
+function sendBegin() {
+  if (S.conn && S.conn.open) {
+    S.conn.send({ type: 'begin', gameState: { role_host: S.role } });
+  }
 }
 
 function launchGame() {
@@ -382,22 +494,25 @@ function dbg(key, val) {
 }
 
 // ---- INIT ----
-// When user reaches connect step, auto-init peer with generated code.
+// PHASE 3b. The goToStep override that used to live here is disabled, not
+// deleted. It was the second half of the double peer init: goToStep() created
+// one peer, then this destroyed it 300ms later and minted a different room
+// code. Both codes rendered into #room-code-display and only the second one
+// was joinable.
 //
-// PRESERVED BUG. goToStep() above already called initPeer(), which registered
-// a random broker ID and displayed a room code nothing is listening on. This
-// override then destroys that peer and shows a second, different code 300ms
-// later. Only the second one is joinable. Fixed in Phase 2, not here.
-const origGoToStep = goToStep;
-window.goToStep = function(stepId) {
-  origGoToStep(stepId);
-  if (stepId === 'step-connect') {
-    setTimeout(() => {
-      const code = generateRoomCode();
-      initPeerWithCode(code);
-    }, 300);
-  }
-};
+// goToStep now calls initPeerWithCode() directly, once, guarded on !S.peer.
+// Kept here as the record of what the bug actually was.
+//
+// const origGoToStep = goToStep;
+// window.goToStep = function(stepId) {
+//   origGoToStep(stepId);
+//   if (stepId === 'step-connect') {
+//     setTimeout(() => {
+//       const code = generateRoomCode();
+//       initPeerWithCode(code);
+//     }, 300);
+//   }
+// };
 
 // Debug panel visibility. All the dbg() calls above stay live either way;
 // this only controls whether the panel is on screen.

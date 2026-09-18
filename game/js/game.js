@@ -17,20 +17,21 @@
 //
 // GROQ_URL, GROQ_MODEL and every narration function moved to narrator.js.
 //
-// KNOWN BUGS DELIBERATELY LEFT IN PLACE, all written up in PLAN.md Phase 3:
-//   - makeChoice() returns early on the joiner without ever sending the
-//     choice anywhere. The host builds every prompt from its own choice
-//     alone, so half the game narrates into a void. Phase 3d.
-//   - Veil strength is bumped locally in makeChoice and sendNote and never
-//     broadcast, so the two players' percentages drift apart from turn one.
-//     setupGameMessageHandler already HANDLES veil-update; nothing sends it.
-//     Phase 3e.
-//   - The companion panel's Energy and Composure meters are hardcoded to
-//     100 percent and never update. Nothing broadcasts either value.
-//   - setupGameMessageHandler registers the THIRD live conn.on('data')
-//     handler. The other two are in connection.js and character.js. Phase 1
-//     step 4 wants all three collapsed into one dispatcher but says to show
-//     the diff first, so all three are still here.
+// PHASE 3, DONE. What used to be broken here and is not any more:
+//   - 3d. makeChoice returned early on the joiner without sending the choice
+//     anywhere, so the host wrote every turn from its own action alone. Both
+//     sides now send, and the host resolves once both have arrived.
+//   - 3e. Veil strength was bumped locally and never broadcast, so the two
+//     percentages drifted apart from turn one. veil-update was HANDLED and
+//     sent by nothing. It is sent now, and energy with it.
+//   - 3f. Host identity was read off a lobby tab. It is S.isHost, latched at
+//     handshake.
+//   - Phase 1 step 4. This file's conn.on('data') was the third of three live
+//     listeners. All three are one dispatcher in connection.js now.
+//
+// Still not fixed here, on purpose: the companion panel's Composure meter is
+// still hardcoded at 100 percent. Energy is broadcast, Composure has nothing
+// behind it yet.
 // ============================================================
 
 // Game state
@@ -46,6 +47,12 @@ const G = {
   openingDone: false,
   fantasyChoices: [],
   realityChoices: [],
+
+  // PHASE 3d. The turn now waits for BOTH players. This holds each side's
+  // choice until the pair is complete, then the host resolves the turn once.
+  // Previously the joiner's choice was never sent anywhere and the host
+  // narrated every turn from its own choice alone.
+  pendingChoices: { fantasy: null, reality: null },
 };
 
 // The captions below predate the established mural progression in the vault
@@ -322,6 +329,25 @@ function veilBlink() {
   // Drain energy
   G.energy = Math.max(0, G.energy - 8);
   updateEnergyDisplay();
+  broadcastEnergy();
+}
+
+// ---- STATE BROADCAST (PHASE 3e) ----
+// veil-update was HANDLED by the old code and sent by nothing, so the two
+// players' veil percentages drifted apart from turn one. Energy was never
+// shared at all, which is why the companion panel's meter sat at a hardcoded
+// 100 percent forever.
+
+function broadcastVeil() {
+  if (S.conn && S.conn.open) {
+    S.conn.send({ type: 'veil-update', strength: G.veilStrength });
+  }
+}
+
+function broadcastEnergy() {
+  if (S.conn && S.conn.open) {
+    S.conn.send({ type: 'energy-update', energy: G.energy });
+  }
 }
 
 function showCorruptedImage() {
@@ -348,7 +374,9 @@ function showCorruptedImage() {
 
 // ---- OPENING SCENE ----
 async function beginOpeningScene() {
-  const isHost = S.action === 'create';
+  // PHASE 3f. Was S.action === 'create', read off a lobby tab that stays
+  // clickable after connecting. S.isHost is latched at handshake instead.
+  const isHost = S.isHost;
 
   setThinking(true);
 
@@ -376,53 +404,93 @@ async function beginOpeningScene() {
   }
 }
 
-// ---- MAKE CHOICE ----
+// ---- MAKE CHOICE (PHASE 3d) ----
+// The old version had the joiner write its choice to the local feed and then
+// `return`, so the choice was never transmitted and the host wrote every turn
+// from its own action alone. Half the game narrated into a void.
+//
+// Now both sides record their choice, send it over the wire, and the HOST
+// resolves the turn once both have arrived.
 async function makeChoice(side, choiceText) {
   if (G.waitingForNarrator) return;
-  G.waitingForNarrator = true;
-  setChoicesEnabled(false);
-  setThinking(true);
+  if (G.pendingChoices[side]) return; // already chose this turn
 
   addEntry('private', choiceText, 'action');
   addEntry('shared', `Turn ${G.turn} -- ${S.myCharacter.name} acts`, 'system');
 
-  const history = G[side + 'History'];
-  history.push({ role: 'player', text: choiceText });
-  const recentHistory = history.slice(-5).map(h => h.text).join('\n\n');
+  G[side + 'History'].push({ role: 'player', text: choiceText });
+  G.pendingChoices[side] = choiceText;
+  setChoicesEnabled(false);
 
-  const isHost = S.action === 'create';
+  if (S.conn && S.conn.open) {
+    S.conn.send({ type: 'player-choice', side, text: choiceText, turn: G.turn });
+  }
 
-  if (isHost) {
-    const prompt = `The ${side} player (${S.myCharacter.name}) chose: "${choiceText}"\n\nRecent history:\n${recentHistory}\n\nContinue the scene with consequence for both sides. Nothing is safe. Each player only perceives their own side of what just happened. Produce all four sections.`;
-
-    let raw;
-    if (S.groqKey) {
-      raw = await callGroq(buildCombinedSystem(), prompt);
-    } else {
-      raw = buildOfflineCombined();
-    }
-
-    if (S.conn && S.conn.open) {
-      S.conn.send({ type: 'narrator-update', raw, turn: G.turn });
-    }
-
-    applyNarratorResponse(raw);
-    history.push({ role: 'narrator', text: raw });
-
+  if (S.isHost) {
+    await resolveTurnIfReady();
   } else {
-    // Joiner waits for host broadcast
-    addEntry('shared', 'Waiting for the veil...', 'system');
+    setThinking(true, 'Your choice is made. Waiting for the other side...');
+  }
+}
+
+// Host only. Fires when both choices are in, never before.
+async function resolveTurnIfReady() {
+  if (!S.isHost || G.waitingForNarrator) return;
+
+  const f = G.pendingChoices.fantasy;
+  const r = G.pendingChoices.reality;
+
+  if (!f || !r) {
+    setThinking(true, 'Your choice is made. Waiting for the other side...');
     return;
   }
 
+  G.waitingForNarrator = true;
+  setThinking(true);
+
+  const fC = S.role === 'fantasy' ? S.myCharacter : S.otherCharacter;
+  const rC = S.role === 'reality' ? S.myCharacter : S.otherCharacter;
+
+  // Both sides' recent history, so the narrator can see the shape of the turn
+  // rather than one player's half of it.
+  const recentHistory = G.fantasyHistory
+    .concat(G.realityHistory)
+    .slice(-6)
+    .map(h => h.text)
+    .join('\n\n');
+
+  const prompt = `The fantasy player (${fC.name}) chose: "${f}"\nThe reality player (${rC.name}) chose: "${r}"\n\nRecent history:\n${recentHistory}\n\nContinue the scene with consequence for both sides. Nothing is safe. Each player only perceives their own side of what just happened. Produce all four sections.`;
+
+  let raw;
+  if (S.groqKey) {
+    raw = await callGroq(buildCombinedSystem(), prompt);
+  } else {
+    raw = buildOfflineCombined();
+  }
+
+  if (S.conn && S.conn.open) {
+    S.conn.send({ type: 'narrator-update', raw, turn: G.turn });
+  }
+
+  applyNarratorResponse(raw);
+  G.fantasyHistory.push({ role: 'narrator', text: raw });
+
+  G.pendingChoices = { fantasy: null, reality: null };
   G.waitingForNarrator = false;
 
+  advanceTurn();
+}
+
+// Host only. Turn counter, veil drift and mural, all broadcast so the other
+// screen actually matches this one.
+function advanceTurn() {
   G.turn++;
   const turnEl = document.getElementById('turnNum');
   if (turnEl) turnEl.textContent = G.turn;
 
   G.veilStrength = Math.min(100, G.veilStrength + Math.floor(Math.random() * 6) + 2);
   updateVeil(G.veilStrength);
+  broadcastVeil();
 
   if (G.turn % 3 === 0 && G.muralLayer < 5) {
     G.muralLayer++;
@@ -436,33 +504,68 @@ async function makeChoice(side, choiceText) {
   }
 }
 
-// ---- GAME MESSAGE HANDLER ----
+// ---- GAME MESSAGE HANDLERS ----
+// PHASE 1 STEP 4. This was the third of three live conn.on('data') listeners.
+// Registered once at load now, routed through the one dispatcher in
+// connection.js. setupGameMessageHandler is kept as a no-op so the call in
+// launchActualGame still reads honestly and nothing breaks if it is called
+// twice.
+
 function setupGameMessageHandler() {
-  if (!S.conn) return;
-  S.conn.on('data', (data) => {
-    if (data.type === 'note') receiveNote(data);
-
-    if (data.type === 'narrator-update') {
-      applyNarratorResponse(data.raw);
-      G.waitingForNarrator = false;
-      G.turn = data.turn + 1;
-      const turnEl = document.getElementById('turnNum');
-      if (turnEl) turnEl.textContent = G.turn;
-      if (!G.openingDone) {
-        if (S.role === 'reality') setTimeout(() => showCorruptedImage(), 1200);
-        if (S.role === 'fantasy') setTimeout(() => veilBlink(), 800);
-        G.openingDone = true;
-      }
-    }
-
-    if (data.type === 'mural-advance') {
-      advanceMuralLayer(data.layer, data.caption);
-      addEntry('shared', 'The mural shifts.', 'system');
-    }
-
-    if (data.type === 'veil-update') updateVeil(data.strength);
-  });
+  // Intentionally empty. Handlers are registered at the bottom of this file.
 }
+
+onMessage('note', (data) => receiveNote(data));
+
+onMessage('narrator-update', (data) => {
+  applyNarratorResponse(data.raw);
+  G.waitingForNarrator = false;
+
+  // PHASE 3d. Clear the pair so the next turn can accept fresh choices.
+  G.pendingChoices = { fantasy: null, reality: null };
+
+  G.turn = data.turn + 1;
+  const turnEl = document.getElementById('turnNum');
+  if (turnEl) turnEl.textContent = G.turn;
+
+  if (!G.openingDone) {
+    if (S.role === 'reality') setTimeout(() => showCorruptedImage(), 1200);
+    if (S.role === 'fantasy') setTimeout(() => veilBlink(), 800);
+    G.openingDone = true;
+  }
+});
+
+// PHASE 3d. The other player's choice, which previously went nowhere.
+onMessage('player-choice', (data) => {
+  G.pendingChoices[data.side] = data.text;
+
+  const hist = G[data.side + 'History'];
+  if (hist) hist.push({ role: 'player', text: data.text });
+
+  addEntry('shared', 'The other side has chosen.', 'system');
+
+  if (S.isHost) resolveTurnIfReady();
+});
+
+onMessage('mural-advance', (data) => {
+  advanceMuralLayer(data.layer, data.caption);
+  addEntry('shared', 'The mural shifts.', 'system');
+
+  // The host blinks its own screen when it is the fantasy side. Without this
+  // the fantasy JOINER never blinked and never lost the energy, which is a
+  // straight desync of a mechanic the vault calls cumulative and physical.
+  if (S.role === 'fantasy') veilBlink();
+});
+
+onMessage('veil-update', (data) => updateVeil(data.strength));
+
+// PHASE 3e. Feeds the companion panel meter that was hardcoded at 100%.
+onMessage('energy-update', (data) => {
+  G.energy = data.energy;
+  const fill = document.getElementById('compEnergyFill');
+  if (fill) fill.style.width = Math.max(0, Math.min(100, data.energy)) + '%';
+  updateEnergyDisplay();
+});
 
 async function submitCustom(side) {
   const inputId = side === 'fantasy' ? 'fantasyCustom' : 'realityCustom';
@@ -499,6 +602,7 @@ function sendNote(side) {
 
   G.veilStrength = Math.min(100, G.veilStrength + 1);
   updateVeil(G.veilStrength);
+  broadcastVeil();
 }
 
 function receiveNote(data) {
@@ -627,9 +731,19 @@ function addEntry(target, text, type) {
   feed.scrollTop = feed.scrollHeight;
 }
 
-function setThinking(on) {
+// PHASE 3d. Takes an optional message so the turn can say "waiting for the
+// other side" rather than pretending the narrator is thinking. Called with
+// one argument everywhere else, same as before.
+const THINKING_TEXT = {
+  fantasy: 'The veil stirs...',
+  reality: 'Something moves in the brushstrokes...'
+};
+
+function setThinking(on, msg) {
   const el = document.getElementById('privateThink');
-  if (el) el.style.display = on ? 'block' : 'none';
+  if (!el) return;
+  if (on) el.textContent = msg || THINKING_TEXT[S.role] || 'The veil stirs...';
+  el.style.display = on ? 'block' : 'none';
 }
 
 function setChoicesEnabled(enabled) {
