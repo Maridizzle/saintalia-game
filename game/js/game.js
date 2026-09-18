@@ -78,7 +78,7 @@ function launchActualGame() {
 
   // The run, in play order. The Escape and The Sky Tears bridges and The
   // Dream go in here as they are built. See PLAN.md "Current priority".
-  setSceneOrder(['opening', 'lockdown']);
+  setSceneOrder(['opening', 'lockdown', 'questions']);
 
   mountScene('opening');
 }

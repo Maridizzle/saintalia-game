@@ -43,10 +43,11 @@ async function callGroqRaw(system, userMsg, maxTokens) {
         model: GROQ_MODEL,
         max_tokens: maxTokens || 800,
         temperature: 0.88,
-        messages: [
-          { role: 'system', content: system },
-          { role: 'user', content: userMsg }
-        ]
+        // The 15 Questions sends a single user message with no system
+        // prompt, so an empty system is dropped rather than sent blank.
+        messages: system
+          ? [{ role: 'system', content: system }, { role: 'user', content: userMsg }]
+          : [{ role: 'user', content: userMsg }]
       })
     });
     const data = await resp.json();
