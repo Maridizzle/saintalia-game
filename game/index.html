@@ -114,15 +114,24 @@
 </div>
 
 <!--
-  Load order matters. char-data defines CHAR_DATA, which character.js reads.
-  connection.js defines S and setScreen, which everything else reads.
-  narrator.js calls into game.js at runtime only, never at load.
+  Load order matters, because these are plain scripts and anything called at
+  load time has to already exist.
+
+    char-data      CHAR_DATA, read by character.js
+    connection     S, setScreen, onMessage, the dispatcher. Needed by all.
+    scenes         registerScene, forScene, mountScene. Calls onMessage at load.
+    character      registers its 'character' handler at load
+    narrator       defines only. Calls into game.js at runtime, never at load.
+    game           registers its handlers at load, wrapped in forScene
+    scenes/opening registers itself, so it goes last
 -->
 <script src="data/char-data.js"></script>
 <script src="js/connection.js"></script>
+<script src="js/scenes.js"></script>
 <script src="js/character.js"></script>
 <script src="js/narrator.js"></script>
 <script src="js/game.js"></script>
+<script src="js/scenes/opening.js"></script>
 
 </body>
 </html>

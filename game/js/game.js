@@ -69,20 +69,26 @@ const MURAL_LAYERS = [
   { caption: 'It has a face now. In the center of your ceiling. It has always had a face. You just could not see it before.' },
 ];
 
+// PHASE 4. This used to build the game screen and kick off the opening
+// narration directly. It now hands off to the scene manager, which mounts
+// the Opening as a scene. The Opening's implementation is unchanged and
+// still lives in this file; js/scenes/opening.js is a thin adapter over it.
 function launchActualGame() {
-  buildGameScreen();
-  setupGameMessageHandler();
-  setTimeout(() => beginOpeningScene(), 600);
+  document.body.innerHTML = '';
+  setSceneOrder(['opening']);
+  mountScene('opening');
 }
 
-function buildGameScreen() {
+// PHASE 4. Takes a root element now. Falls back to document.body so nothing
+// breaks if it is ever called the old way.
+function buildGameScreen(root) {
   const isF = S.role === 'fantasy';
   const myC = S.myCharacter;
   const otherC = S.otherCharacter;
 
   setScreen('game');
 
-  document.body.innerHTML = `
+  (root || document.body).innerHTML = `
   <!-- GAME HEADER -->
   <div class="g-header">
     <div class="g-logo">Saintalia</div>
@@ -515,9 +521,15 @@ function setupGameMessageHandler() {
   // Intentionally empty. Handlers are registered at the bottom of this file.
 }
 
+// SHARED, not scene scoped. Notes are the through-line across every scene in
+// the vault, so G.notes must keep accumulating no matter what is mounted.
+// The DOM writes inside receiveNote no-op when a scene has no note thread.
 onMessage('note', (data) => receiveNote(data));
 
-onMessage('narrator-update', (data) => {
+// PHASE 4. Everything below belongs to the Opening specifically, so each is
+// wrapped in forScene. A late narrator-update arriving after the Lockdown has
+// mounted would otherwise render into whatever DOM happened to be on screen.
+onMessage('narrator-update', forScene('opening', (data) => {
   applyNarratorResponse(data.raw);
   G.waitingForNarrator = false;
 
@@ -533,10 +545,10 @@ onMessage('narrator-update', (data) => {
     if (S.role === 'fantasy') setTimeout(() => veilBlink(), 800);
     G.openingDone = true;
   }
-});
+}));
 
 // PHASE 3d. The other player's choice, which previously went nowhere.
-onMessage('player-choice', (data) => {
+onMessage('player-choice', forScene('opening', (data) => {
   G.pendingChoices[data.side] = data.text;
 
   const hist = G[data.side + 'History'];
@@ -545,9 +557,9 @@ onMessage('player-choice', (data) => {
   addEntry('shared', 'The other side has chosen.', 'system');
 
   if (S.isHost) resolveTurnIfReady();
-});
+}));
 
-onMessage('mural-advance', (data) => {
+onMessage('mural-advance', forScene('opening', (data) => {
   advanceMuralLayer(data.layer, data.caption);
   addEntry('shared', 'The mural shifts.', 'system');
 
@@ -555,17 +567,17 @@ onMessage('mural-advance', (data) => {
   // the fantasy JOINER never blinked and never lost the energy, which is a
   // straight desync of a mechanic the vault calls cumulative and physical.
   if (S.role === 'fantasy') veilBlink();
-});
+}));
 
-onMessage('veil-update', (data) => updateVeil(data.strength));
+onMessage('veil-update', forScene('opening', (data) => updateVeil(data.strength)));
 
 // PHASE 3e. Feeds the companion panel meter that was hardcoded at 100%.
-onMessage('energy-update', (data) => {
+onMessage('energy-update', forScene('opening', (data) => {
   G.energy = data.energy;
   const fill = document.getElementById('compEnergyFill');
   if (fill) fill.style.width = Math.max(0, Math.min(100, data.energy)) + '%';
   updateEnergyDisplay();
-});
+}));
 
 async function submitCustom(side) {
   const inputId = side === 'fantasy' ? 'fantasyCustom' : 'realityCustom';
