@@ -16,6 +16,25 @@ Every phase ends with a verification gate. A phase is not done until Maridizzle 
 
 Working principle for the whole plan: engine and content are separate. The engine is built to read scene content as data. Story content arrives from Maridizzle whenever it arrives. The engine never waits on it and never fills it in.
 
+## Current priority: make what already exists playable
+
+Maridizzle's call, and it supersedes the phase order below. Before anything new gets built, the pieces that already work should connect into one run with one character:
+
+```
+character creation -> the Opening -> the Lockdown -> the 15 Questions -> coming soon
+```
+
+Order of attack: **Phase 3, then 4, then 5, then 6, then the bridge and gate from Phase 8.**
+
+**Phase 7, The Dream, is DEFERRED** until that run works end to end. It is still going to be built, just not first.
+
+Two things that follow from this, both deliberate and both temporary:
+
+- The 15 Questions will interrogate both players about a veil The Dream was supposed to show them. That hole closes when Phase 7 happens.
+- Only one bridge is needed for this run, between the Lockdown and the 15 Questions, covering The Escape and The Sky Tears.
+
+Why Phase 3 cannot be skipped even though it is "just bugs": the lobby currently prints **two different room codes 300ms apart and only the second one works.** Two devices cannot reliably connect until that is fixed, and everything above depends on two devices connecting.
+
 ## Answered, after the vault arrived
 
 The vault and Maridizzle's decisions settled these. Recorded here so nobody relitigates them.
@@ -273,7 +292,7 @@ Goal: The 15 Questions plays inside the merged app.
 
 Do not touch: question text, seed text, tangent text.
 
-## Phase 7 -- Build The Dream (beat 2-A)
+## Phase 7 -- Build The Dream (beat 2-A) -- DEFERRED, see Current priority above
 
 Goal: the one missing scene that cannot honestly be bridged.
 
