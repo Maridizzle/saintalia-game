@@ -26,7 +26,12 @@ const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const GROQ_MODEL = 'llama-3.3-70b-versatile';
 
 // ---- GROQ NARRATOR ----
-async function callGroq(system, userMsg) {
+
+// PHASE 5. The raw call. Returns the text, or null if there is no key, the
+// API errors, or the network fails. Every scene needs this shape, because
+// the Opening's four-block offline fallback is meaningless to the Lockdown.
+async function callGroqRaw(system, userMsg, maxTokens) {
+  if (!S.groqKey) return null;
   try {
     const resp = await fetch(GROQ_URL, {
       method: 'POST',
@@ -36,21 +41,80 @@ async function callGroq(system, userMsg) {
       },
       body: JSON.stringify({
         model: GROQ_MODEL,
-        max_tokens: 800,
+        max_tokens: maxTokens || 800,
         temperature: 0.88,
-        messages: [
-          { role: 'system', content: system },
-          { role: 'user', content: userMsg }
-        ]
+        // The 15 Questions sends a single user message with no system
+        // prompt, so an empty system is dropped rather than sent blank.
+        messages: system
+          ? [{ role: 'system', content: system }, { role: 'user', content: userMsg }]
+          : [{ role: 'user', content: userMsg }]
       })
     });
     const data = await resp.json();
-    if (data.error) return buildOfflineCombined();
+    if (data.error) { console.warn('[saintalia] Groq error:', data.error.message); return null; }
     return data.choices[0].message.content;
   } catch(e) {
-    return buildOfflineCombined();
+    console.warn('[saintalia] Groq fetch failed:', e);
+    return null;
   }
 }
+
+// The Opening's call. Unchanged in behavior: falls back to the four-block
+// offline text whenever the raw call comes back empty.
+async function callGroq(system, userMsg) {
+  const out = await callGroqRaw(system, userMsg, 800);
+  return out === null ? buildOfflineCombined() : out;
+}
+
+// ---- HOST PROXY (PHASE 5, answers PLAN.md open question 5) ----
+// Only the host holds a Groq key. When a non-host scene needs narration it
+// asks the host, and the host calls Groq and sends the words back. The
+// non-host never sees a key box, and the whole game runs on one person's
+// free quota.
+//
+// Every scene should call requestNarration, never callGroqRaw directly,
+// unless it has already checked it is the host.
+
+let NARRATE_SEQ = 0;
+const NARRATE_PENDING = {};
+const NARRATE_TIMEOUT_MS = 25000;
+
+async function requestNarration(system, userMsg, maxTokens) {
+  if (S.isHost) return callGroqRaw(system, userMsg, maxTokens);
+
+  // No host to ask. The caller falls back to its own offline text.
+  if (!S.conn || !S.conn.open) return null;
+
+  const id = 'n' + (++NARRATE_SEQ);
+  return new Promise((resolve) => {
+    NARRATE_PENDING[id] = resolve;
+    S.conn.send({ type: 'narrate-request', id, system, userMsg, maxTokens });
+
+    // A host that never answers must not freeze the other player's turn.
+    setTimeout(() => {
+      if (NARRATE_PENDING[id]) {
+        delete NARRATE_PENDING[id];
+        console.warn('[saintalia] narration request ' + id + ' timed out');
+        resolve(null);
+      }
+    }, NARRATE_TIMEOUT_MS);
+  });
+}
+
+onMessage('narrate-request', async (data) => {
+  if (!S.isHost) return;
+  const text = await callGroqRaw(data.system, data.userMsg, data.maxTokens);
+  if (S.conn && S.conn.open) {
+    S.conn.send({ type: 'narrate-response', id: data.id, text });
+  }
+});
+
+onMessage('narrate-response', (data) => {
+  const resolve = NARRATE_PENDING[data.id];
+  if (!resolve) return;
+  delete NARRATE_PENDING[data.id];
+  resolve(data.text);
+});
 
 function buildCombinedSystem() {
   const fC = S.role === 'fantasy' ? S.myCharacter : S.otherCharacter;
