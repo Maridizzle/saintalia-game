@@ -283,7 +283,7 @@ Established in `saintalia_7.md`. Code column says what exists in this repo.
 | 1 | The Lockdown | built (sandbox) |
 | 1 | The Escape | folded into the Lockdown's completion message |
 | 1 | The Sky Tears | not built |
-| 2 | The Dream (beat 2-A) | not built |
+| 2 | The Dream (beat 2-A) | not built, **to be built for real** (PLAN.md Phase 7) |
 | 2 | The 15 Questions (beat 2-B) | built (sandbox) |
 | 2 | The Branching Confessions | not built, not specified |
 | 2 | The Soul Tagging | not built, fully specified |
@@ -294,7 +294,14 @@ Established in `saintalia_7.md`. Code column says what exists in this repo.
 
 **The three built scenes are not adjacent.** The Escape, The Sky Tears and The Dream sit between the Lockdown and the 15 Questions.
 
+**Maridizzle's decision on that gap:** bridge The Escape and The Sky Tears, which are genuinely transitional. **Build The Dream for real.** It is a full puzzle scene roughly the size of the Lockdown and it carries the central revelation of Layer 2. Bridging it would have the 15 Questions interrogate both players about a veil they were never properly shown.
+
 **The Dream reuses the same five objects** with a different mechanic (the artist describes, P2 guides placement on a wall) and a different flash sequence that always fires in a fixed order regardless of placement order: seed of life inside a glowing seed, flower of life expanding, tree of life forming, the tree exploding into a geometric network, a dark cloaked figure entering the network and poisoning it.
+
+Three things in the vault's Dream spec are unresolved and Claude will not guess them. See PLAN.md Phase 7.
+- The object-to-flash mapping (key = 1, bottle = 2, and so on) contradicts "flashes always fire in sequence order regardless of placement order."
+- Nothing states what makes a placement "correct," or what a wrong one does.
+- The five flashes are one-line concepts, not written prose like the Lockdown's five.
 
 ### Scoring
 

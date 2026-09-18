@@ -4,7 +4,13 @@ Read CLAUDE.md first.
 
 Rewritten after Phase 0. The old version was written without seeing the files and guessed wrong about several important things. What follows is built on what is actually in the repo.
 
-**The goal:** get the three existing scenes combining into one app that plays through like the real game, end to end, and then hits a "coming soon" gate.
+**The goal:** one app that plays through like the real game, end to end, and then hits a "coming soon" gate.
+
+The run is the three existing scenes plus The Dream, which is built rather than bridged because it carries the central revelation of Layer 2:
+
+```
+The Opening -> The Lockdown -> bridge -> bridge -> The Dream -> The 15 Questions -> coming soon
+```
 
 Every phase ends with a verification gate. A phase is not done until Maridizzle has seen the gate pass. No phase starts until Maridizzle says start. Nothing is committed or pushed by Claude at any point. Claude prepares changes, Maridizzle pushes.
 
@@ -42,7 +48,9 @@ Claude does not write story content. These are logged, not actioned.
 
 - **Lockdown flashes 2 and 3 are swapped.** The vault maps waterbottle to The Neural Network and compass to The Book. The code has them crossed. Point IDs are correct; only the flash text is wrong.
 - Genericizing the ten tangent guardrails (see item 4).
-- The bridge text covering The Escape, The Sky Tears and The Dream (see Phase 7).
+- The bridge text for The Escape and The Sky Tears (see Phase 8).
+- The Dream's flash prose, or a decision to let the narrator expand it from a guardrail (see Phase 7).
+- Three mechanical answers The Dream needs before it can be built (see Phase 7).
 - The coming-soon gate's copy.
 
 ## Phase 0 -- Inventory (read only) -- COMPLETE
@@ -265,29 +273,70 @@ Goal: The 15 Questions plays inside the merged app.
 
 Do not touch: question text, seed text, tangent text.
 
-## Phase 7 -- Bridges, transitions, and the coming-soon gate
+## Phase 7 -- Build The Dream (beat 2-A)
+
+Goal: the one missing scene that cannot honestly be bridged.
+
+Maridizzle's decision: bridge The Escape and The Sky Tears, which are genuinely transitional, and **build The Dream for real.** It is a full puzzle scene roughly the size of the Lockdown, and it carries the central revelation of Layer 2. Skipping it would have the 15 Questions interrogate both players about a veil they were never properly shown.
+
+It is built LAST of the scenes, after both existing ones are folded in, so it lands on an engine already hardened by two real scenes rather than on theory.
+
+### What the vault establishes
+
+- Trigger: both players sleep after The Sky Tears. The veil, aware and dying, reaches through the only channel left, unconscious minds.
+- Reality: the artist wakes in a room, phone in hand. The same five warped objects. A wall of shifting incomprehensible shapes glowing different colors.
+- Fantasy: P2 wakes on a tower in an ocean with the hologram screen. Not Saintalia. Neither world. Neither player chose this. They find each other immediately.
+- Mechanic: the artist describes each object. P2 guides placement on the wall. Order is the artist's choice.
+- Flash sequence, always in this order: seed of life inside a glowing seed, the flower of life expanding, the tree of life forming, the tree exploding into a vast geometric network of repeating mathematical patterns, a dark cloaked figure entering the network and poisoning it.
+- After: both players understand the veil is a living geometric network spanning universes, something is poisoning it, and the tearing sky is that poisoning made visible. Neither chose to know it. Neither can unknow it.
+
+### Three questions that block the build
+
+Claude will not guess any of these.
+
+1. **The sequence contradiction.** The vault says object-to-flash mapping is key = Flash 1, bottle = 2, compass = 3, clock = 4, photograph = 5. It ALSO says flashes always fire in sequence order regardless of placement order. Those conflict. If the artist places the compass first, does that fire Flash 3 because the compass owns it, or Flash 1 because it is the first placement? Two readings: the Nth placement fires the Nth flash and the object mapping is vestigial, or each object owns its flash and they are buffered until their turn in the sequence.
+
+2. **What makes a placement correct?** The vault says "each correct placement fires one flash," which implies a placement can be wrong. Nothing states what correct means, what happens on a wrong one, or whether P2 can see enough to know.
+
+3. **Where does the flash prose come from?** The Lockdown ships five fully written flashes. The Dream has five one-line concepts. Either Maridizzle writes five full flashes, or the narrator expands each concept from a guardrail the way the 15 Questions tangents work.
+
+### Steps, once those are answered
+
+1. `js/scenes/dream.js` implementing the scene interface.
+2. `data/scenes/dream.json` for all content. The five objects are the same five as the Lockdown, so that data is shared rather than duplicated.
+3. The wall, the placement mechanic, and the describe-and-guide loop, asymmetric like every other scene.
+4. Flash firing per Maridizzle's answer to question 1, synced to both sides.
+5. Built mobile-first, per Phase 2.
+
+Do not touch: the flash concepts, the object list, the object mapping. All of it is Maridizzle's.
+
+## Phase 8 -- Bridges, transitions, and the coming-soon gate
 
 Goal: one continuous playthrough, Opening to gate.
 
-Maridizzle's decision: **bridge the gaps, gate at the end.** The three built scenes are not adjacent, so the run is:
+Two bridges, not three. The Dream is built for real in Phase 7. The run is:
 
 ```
 The Opening
   -> The Lockdown
     -> bridge: The Escape
     -> bridge: The Sky Tears
-    -> bridge: The Dream
+  -> The Dream
   -> The 15 Questions
     -> coming soon
 ```
 
 A bridge is a short narrative interstitial standing in for a real beat that is not built yet. It is not a fake beat and must never pretend to be one. Each gets a scene container, a continue control, and a `BRIDGE_TBD_<name>` token where the text goes.
 
+The Escape is the smaller of the two. It half exists already as the Lockdown's completion message, and the vault treats it as its own beat: P2 has confirmed the other world is real, the artist carries five flashes they cannot yet interpret, and the connection has proven itself necessary.
+
+The Sky Tears is the first fully shared beat in the whole game, the first time both players see the same thing through different frames. It deserves more than a paragraph eventually, but a bridge is honest for now.
+
 ### Steps
 
 1. End the Opening on the connection being established, per the vault. The building seals; the Lockdown mounts.
 2. Build the bridge scene type: one container, one block of Maridizzle's text, one continue control that both sides must confirm.
-3. Stand up three bridges with TBD tokens: `BRIDGE_TBD_ESCAPE`, `BRIDGE_TBD_SKYTEARS`, `BRIDGE_TBD_DREAM`.
+3. Stand up two bridges with TBD tokens: `BRIDGE_TBD_ESCAPE`, `BRIDGE_TBD_SKYTEARS`.
 4. Carry state across every transition: characters, note thread, veil, energy, scene results.
 5. A transition screen so a scene swap is not an abrupt DOM replacement.
 6. `js/scenes/coming-soon.js`: the final gate. Container with a `TBD` token. Copy is Maridizzle's.
@@ -302,23 +351,20 @@ A bridge is a short narrative interstitial standing in for a real beat that is n
 - Refreshing mid-game fails gracefully with a readable message rather than a white screen. Real save and resume is backlog.
 - The full run works with no Groq key at all.
 
-### Gate
+## Phase 9 -- Ship it
 
-- One unbroken playthrough on two devices, Opening to coming-soon, no reload, no console errors.
-- Characters, note history, and carried state survive every transition on both sides.
-- Refreshing mid-game fails gracefully with a readable message rather than a white screen. (Real save and resume is backlog.)
-- The full run works with no Groq key at all.
+Most of this already happened out of order, because Maridizzle deployed early to test. Recorded as done rather than pretending it is still ahead.
 
-## Phase 8 -- Ship it
-
-1. Resolve open question 6 (root `index.html`).
-2. Maridizzle creates `main` and sets it as the default branch.
-3. Maridizzle enables Pages: deploy from a branch, `main`, root.
+1. ~~Root `index.html`.~~ Done. A redirect into `game/`.
+2. ~~Create `main`.~~ Done by Maridizzle.
+3. ~~Enable Pages from `main` at root.~~ Done and live.
 4. Verify the live URL on a phone and a desktop, on two different networks, not just two tabs.
+
+Still outstanding: the default branch is `claude/initial-game-import` and should be `main`. Settings, General, Default branch. Only Maridizzle can make that click.
 
 Gate: two people on two networks play the whole thing through the live URL.
 
-## Phase 9 -- Backlog (order to be set by Maridizzle)
+## Phase 10 -- Backlog (order to be set by Maridizzle)
 
 Each gets its own mini-plan and gate when its turn comes. None start without a go.
 
