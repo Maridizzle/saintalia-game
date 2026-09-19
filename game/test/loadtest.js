@@ -210,6 +210,11 @@ if (registered.includes('lockdown')) {
   run("S.role='fantasy'");
   run("mountScene('lockdown')");
   check('state resets on remount', run('LK.foundCount'), 0);
+  run("S.role='reality'; mountScene('lockdown')");
+  run("LK.ctx={send(){}}; lkFireFlash(LOCKDOWN_OBJECTS['key'])");
+  check('lk snapshot roomId', run("CURRENT_SCENE.snapshot().roomId"), 'entrance');
+  check('lk snapshot found', run("CURRENT_SCENE.snapshot().foundCount"), 1);
+  check('lk snapshot has log', run("CURRENT_SCENE.snapshot().log.length > 0"), true);
 }
 
 // ---- THE 15 QUESTIONS ----
@@ -232,7 +237,18 @@ if (registered.includes('questions')) {
   check('mounts', run("mountScene('questions')"), true);
   check('turn cap counts main only', run('Q.totalTurns'), 10);
   check('pool starts full', run('Q.usedIds.length'), 0);
+  check('q snapshot started (host)', run("CURRENT_SCENE.snapshot().started"), true);
+  check('q snapshot has log', run("Array.isArray(CURRENT_SCENE.snapshot().log)"), true);
 }
+
+// ---- SNAPSHOT COLLECT ----
+console.log('\nSNAPSHOT COLLECT');
+run("S.role='reality'; mountScene('lockdown')");
+check('collectSnapshot exists', run("typeof collectSnapshot"), 'function');
+check('collect scene id', run("collectSnapshot().currentScene"), 'lockdown');
+check('collect has sceneState', run("collectSnapshot().sceneState !== undefined"), true);
+check('collect has G data', run("collectSnapshot().G.turn !== undefined"), true);
+check('collect has role', run("collectSnapshot().role"), 'reality');
 
 // ---- THE FULL RUN ----
 console.log('\nTHE FULL RUN');

@@ -417,6 +417,11 @@ function dispatchMessage(data) {
     console.warn('[saintalia] message with no type:', data);
     return;
   }
+
+  // PHASE 11b. During a restore, incoming game messages queue so they do not
+  // fire into a half-built DOM. Released after the scene mounts.
+  if (typeof maybeHoldMessage === 'function' && maybeHoldMessage(data)) return;
+
   dbg('state', 'msg: ' + data.type);
 
   const handlers = MESSAGE_HANDLERS[data.type];
@@ -431,6 +436,8 @@ function dispatchMessage(data) {
     try { fn(data); }
     catch (e) { console.error('[saintalia] handler failed for "' + data.type + '"', e); }
   });
+
+  if (typeof scheduleSnapshot === 'function') scheduleSnapshot();
 }
 
 // Shown on whichever lobby panel is live, or as a banner once the game has
@@ -542,16 +549,22 @@ function relayResumeFromStorage() {
   }
 }
 
-// After a reload mid-game the connection is back but the scene is not. Say
-// so plainly until 11b restores it.
+// After a reload mid-game the connection is back but the scene is not. 11b
+// restores it from the server's snapshot when one exists.
 function relayAfterResume() {
   const R = S.relay;
   if (!R || !R.resumedPhase) return;
   const phase = R.resumedPhase;
+  const snapshot = R.snapshot;
   R.resumedPhase = null;
+  R.snapshot = null;
   dbg('state', 'rejoined after reload (was in ' + phase + ')');
   if (phase !== 'lobby') {
-    setLinkLost('Reconnected to the veil, but the scene was lost with the page. Rejoining a game in progress is not built yet.', 'waiting');
+    if (snapshot && typeof sessionRestore === 'function') {
+      sessionRestore(snapshot, phase);
+    } else {
+      setLinkLost('Reconnected to the veil, but the scene was lost with the page. The server had no snapshot to restore from.', 'waiting');
+    }
   }
 }
 
@@ -656,6 +669,7 @@ function relayHandleMessage(msg) {
       R.seat = msg.seat;
       R.joined = true;
       R.attempts = 0;
+      R.snapshot = msg.snapshot || null;
       // PHASE 3f, finished. Host identity comes from the server, which knows
       // who opened the room, never from the lobby tab.
       S.isHost = !!msg.isHost;

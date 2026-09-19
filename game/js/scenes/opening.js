@@ -26,6 +26,12 @@ const SceneOpening = {
 
   mount(root, ctx) {
     setScreen('game');
+
+    if (ctx.restoring) {
+      restoreOpening(root);
+      return;
+    }
+
     buildGameScreen(root);
 
     // Same 600ms beat as the original, which gives the layout a moment to
@@ -50,6 +56,10 @@ const SceneOpening = {
   // true after the opening beat resolves. Wiring that is PLAN.md Phase 8.
   isComplete() {
     return false;
+  },
+
+  snapshot() {
+    return { id: 'opening' };
   },
 
   exportState() {

@@ -123,6 +123,9 @@
     character      registers its 'character' handler at load
     narrator       defines only. Calls into game.js at runtime, never at load.
     game           registers its handlers at load, wrapped in forScene
+    session        snapshot collect/send, hold/release, restore. After game.js
+                   because it reads G, S, scene functions. typeof guards cover
+                   files that loaded before it (connection, scenes, game).
     data/scenes/*  scene content, read by the scene that follows it
     js/scenes/*    each registers itself, so they go last
 -->
@@ -132,6 +135,7 @@
 <script src="js/character.js"></script>
 <script src="js/narrator.js"></script>
 <script src="js/game.js"></script>
+<script src="js/session.js"></script>
 <script src="data/scenes/lockdown.js"></script>
 <script src="data/scenes/questions.js"></script>
 <script src="data/scenes/bridges.js"></script>

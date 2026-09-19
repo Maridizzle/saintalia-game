@@ -69,7 +69,8 @@ function makeBridgeScene(def) {
     // players' to trigger, not the scene's.
     isComplete() { return true; },
 
-    exportState() { return { id: def.id, written: !!def.text }; }
+    exportState() { return { id: def.id, written: !!def.text }; },
+    snapshot() { return { id: def.id }; }
   };
 }
 

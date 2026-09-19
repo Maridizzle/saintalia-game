@@ -394,6 +394,31 @@ function showCorruptedImage() {
   if (phoneBtn) phoneBtn.disabled = false;
 }
 
+// PHASE 11b. Rebuilds the Opening from a snapshot without firing narration.
+function restoreOpening(root) {
+  buildGameScreen(root);
+  updateVeil(G.veilStrength);
+  updateEnergyDisplay();
+  var turnEl = document.getElementById('turnNum');
+  if (turnEl) turnEl.textContent = G.turn;
+
+  for (var i = 0; i < G.muralLayer; i++) {
+    var layer = document.getElementById('mL' + i);
+    if (layer) layer.style.opacity = '1';
+  }
+  if (G.muralLayer > 0 && MURAL_LAYERS[G.muralLayer]) {
+    var capEl = document.getElementById('muralCap');
+    if (capEl) capEl.textContent = MURAL_LAYERS[G.muralLayer].caption;
+  }
+
+  G.notes.forEach(function(n) { addNoteToThread(n.from, n.text); });
+
+  if (G.openingDone) {
+    revealOpeningExit();
+    setChoicesEnabled(true);
+  }
+}
+
 // ---- OPENING SCENE ----
 async function beginOpeningScene() {
   // PHASE 3f. Was S.action === 'create', read off a lobby tab that stays
@@ -448,6 +473,8 @@ async function makeChoice(side, choiceText) {
   if (S.conn && S.conn.open) {
     S.conn.send({ type: 'player-choice', side, text: choiceText, turn: G.turn });
   }
+
+  if (typeof scheduleSnapshot === 'function') scheduleSnapshot();
 
   if (S.isHost) {
     await resolveTurnIfReady();
@@ -629,6 +656,8 @@ function sendNote(side) {
   if (S.conn && S.conn.open) {
     S.conn.send({ type: 'note', from: side, text, turn: G.turn });
   }
+
+  if (typeof scheduleSnapshot === 'function') scheduleSnapshot();
 
   G.veilStrength = Math.min(100, G.veilStrength + 1);
   updateVeil(G.veilStrength);

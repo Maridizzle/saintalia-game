@@ -84,7 +84,7 @@ function sceneRoot() {
   return root;
 }
 
-function mountScene(id) {
+function mountScene(id, opts) {
   const scene = SCENES[id];
   if (!scene) {
     console.error('[saintalia] no scene registered as "' + id + '". Registered: ' + Object.keys(SCENES).join(', '));
@@ -103,15 +103,20 @@ function mountScene(id) {
   }
 
   ADVANCE_READY = { me: false, other: false };
+  if (opts && opts.advanceReady) ADVANCE_READY = opts.advanceReady;
 
   const root = sceneRoot();
   root.innerHTML = '';
+
+  const restoreData = (opts && opts.restore) || null;
 
   const ctx = {
     role: S.role,
     isHost: S.isHost,
     me: S.myCharacter,
     other: S.otherCharacter,
+    restore: restoreData,
+    restoring: !!restoreData,
     // Scoped send. The scene never touches S.conn directly, so it cannot
     // accidentally collide with another scene's message names.
     send: (payload) => sendSceneMessage(id, payload)
@@ -128,6 +133,7 @@ function mountScene(id) {
 
   CURRENT_SCENE = scene;
   dbg('state', 'scene: ' + id);
+  if (typeof scheduleSnapshot === 'function') scheduleSnapshot();
   return true;
 }
 
@@ -146,6 +152,7 @@ function sendSceneMessage(sceneId, payload) {
   if (S.conn && S.conn.open) {
     S.conn.send({ type: 'scene-msg', scene: sceneId, payload });
   }
+  if (typeof scheduleSnapshot === 'function') scheduleSnapshot();
 }
 
 onMessage('scene-msg', (data) => {
