@@ -454,6 +454,10 @@ Step 2, the relay, built 2026-09-19. Three things settled in the build:
 - Seats, not roles. The server hands each socket a random seat id on first join; presenting it again is the reconnect. Host is whoever holds the first seat, and the welcome says so. Phase 3f closes here.
 - `server/test/relaytest.js` starts the real server and drives two real sockets through join, forward, drop, backlog, reconnect, and every refusal. `npm test` runs it after the loadtest. Run before any push that touches `server/`.
 
+Step 3, built 2026-09-19 after Maridizzle's two-device run found it: a page reload was the end of the session. The seat lived only in the page, and the room already held two. Now the seat, room, role, host flag, and a `phase` (lobby, char, game) live in `sessionStorage`, which survives a reload and dies with the tab. On load the client rejoins on its own; the server already honors a presented seat. The lobby comes back in the right state. A reload mid-game reconnects but says plainly that the scene was lost with the page; putting the scene back is 11b. Also: `overscroll-behavior-y: contain` on `html, body`, so Android's pull-to-refresh does nothing to the game.
+
+**Order from here, Maridizzle's call 2026-09-19:** 11b part 1 (snapshots and restore, in memory, no database), then 11d, then 11b part 2 (Postgres), then 11c. Reload recovery outranks the back button because a real playtest hit it first.
+
 Gate 11a, two devices on two networks, one of them a phone on cellular:
 
 0. Step 1 on the live domain. Open the site, enter the password, and in the browser console run:
@@ -461,12 +465,19 @@ Gate 11a, two devices on two networks, one of them a phone on cellular:
    Expected: `got: {"type":"hello","echo":true}` then `got: ping`. Anything else and the relay does not get built until it is understood.
    **PASSED 2026-09-19** on `saintalia-game-production.up.railway.app`, seen by Maridizzle: health JSON correct, both echo lines received.
 1. Create, join, character creation, Opening turn one on both sides.
-2. Mid-Lockdown, put the phone in airplane mode for twenty seconds, or switch away from the browser for a minute, then come back. The debug panel shows the retry, then reconnects, and both sides continue. (Killing the browser and reopening is a new page with no seat and no scene state; getting back into the same game after that is what 11b's saves are for, and it is tested there.)
+2. Mid-Lockdown, put the phone in airplane mode for twenty seconds, or switch away from the browser for a minute, then come back. The debug panel shows the retry, then reconnects, and both sides continue. **PASSED 2026-09-19** on two devices.
+2b. Reload the page in the lobby, after both sides are at Step III. It comes back at Step III on its own, same seat, same role, and the other side sees nothing but a flicker. (Reload mid-game reconnects and says the scene was lost; the scene comes back in 11b.)
 3. Redeploy mid-game: merge anything to `main` while a game is live. The server restarts and forgets its rooms; both clients present their seats, the room is rebuilt around them, host stays host, and the game continues. Every later step deploys on merge, so this has to hold.
 4. `TRANSPORT = 'peer'` still works end to end, proving nothing above the transport changed.
 5. `npm test` passes: the loadtest and the relay server test.
 
-### 11b. Saves, checkpointed at scene boundaries
+### 11b. Saves
+
+Restructured 2026-09-19 after the reload finding. Two parts, and the database comes second.
+
+**Part 1, in memory, no database.** Every scene gets `snapshot()` and `restore()`. The host sends a `relay-snapshot` of shared state to the server after each state change (turn resolved, object found, scene advanced); each client sends its own private half the same way. The server keeps only the latest per room and seat, in memory, and hands it back in the welcome when a seat rejoins. A reload then rejoins, rebuilds the screen, mounts the scene, and restores it, without disturbing the other player. This is what makes a mid-game reload survivable.
+
+**Part 2, Postgres.** The same snapshots written through to the game's own database, plus named save slots and the resume panel below. This adds surviving a server restart with rooms gone and coming back days later. Everything below describes part 2 as originally planned.
 
 Server:
 

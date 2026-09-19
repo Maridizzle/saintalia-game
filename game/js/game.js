@@ -74,6 +74,7 @@ const MURAL_LAYERS = [
 // the Opening as a scene. The Opening's implementation is unchanged and
 // still lives in this file; js/scenes/opening.js is a thin adapter over it.
 function launchActualGame() {
+  if (typeof relayRemember === 'function') relayRemember({ phase: 'game' });   // PHASE 11a step 3
   document.body.innerHTML = '';
 
   // The run, in play order. The Dream slots in between skytears and

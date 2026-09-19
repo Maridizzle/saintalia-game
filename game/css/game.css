@@ -134,6 +134,11 @@ body {
   color: var(--parchment);
 }
 
+/* PHASE 11a step 3. On Android, dragging down at the top of the page is
+   pull-to-refresh, and a reload is a new page. Contain the overscroll so
+   that drag does nothing. iOS has no pull-to-refresh, only the button. */
+html, body { overscroll-behavior-y: contain; }
+
 
 /* ============================================================
    4. PER-SCREEN BODY RULES
