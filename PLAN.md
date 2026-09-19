@@ -448,15 +448,23 @@ Client, `connection.js` only:
 
 Step 1, the echo socket, deploys before any relay code: `package.json` at the repo root, `server/index.js` with auth, static `game/`, `/api/health`, `/api/ws-token`, and a `/ws` that echoes. Verified locally 2026-09-19: 401 without the password, 401 on a socket with no token, echo works, a reused token is refused, loadtest passes.
 
+Step 2, the relay, built 2026-09-19. Three things settled in the build:
+- `TRANSPORT = 'auto'`, not `'relay'`. GitHub Pages still serves `main`, so a client that only knew the relay would break the Pages URL on merge. Auto tries `/api/ws-token`; if it is not there, PeerJS carries the session. Same files on both hosts, and the peer path stays exercised for real.
+- Queues on both ends. The server holds up to 100 messages for a seat whose socket is down and delivers them on reconnect. The client holds up to 100 while its own socket is down. `S.conn.open` means "room and partner," and stays true through a blip, so the sixteen call sites keep sending and nothing is dropped on the floor.
+- Seats, not roles. The server hands each socket a random seat id on first join; presenting it again is the reconnect. Host is whoever holds the first seat, and the welcome says so. Phase 3f closes here.
+- `server/test/relaytest.js` starts the real server and drives two real sockets through join, forward, drop, backlog, reconnect, and every refusal. `npm test` runs it after the loadtest. Run before any push that touches `server/`.
+
 Gate 11a, two devices on two networks, one of them a phone on cellular:
 
 0. Step 1 on the live domain. Open the site, enter the password, and in the browser console run:
    `fetch('/api/ws-token').then(r=>r.json()).then(({token})=>{const ws=new WebSocket('wss://'+location.host+'/ws?token='+token);ws.onopen=()=>ws.send('ping');ws.onmessage=e=>console.log('got:',e.data);ws.onerror=()=>console.log('socket failed');});`
    Expected: `got: {"type":"hello","echo":true}` then `got: ping`. Anything else and the relay does not get built until it is understood.
+   **PASSED 2026-09-19** on `saintalia-game-production.up.railway.app`, seen by Maridizzle: health JSON correct, both echo lines received.
 1. Create, join, character creation, Opening turn one on both sides.
-2. Kill the phone's browser mid-Lockdown. Reopen. Same room code. It reconnects and both sides continue.
-3. `TRANSPORT = 'peer'` still works end to end, proving nothing above the transport changed.
-4. `node game/test/loadtest.js` passes.
+2. Mid-Lockdown, put the phone in airplane mode for twenty seconds, or switch away from the browser for a minute, then come back. The debug panel shows the retry, then reconnects, and both sides continue. (Killing the browser and reopening is a new page with no seat and no scene state; getting back into the same game after that is what 11b's saves are for, and it is tested there.)
+3. Redeploy mid-game: merge anything to `main` while a game is live. The server restarts and forgets its rooms; both clients present their seats, the room is rebuilt around them, host stays host, and the game continues. Every later step deploys on merge, so this has to hold.
+4. `TRANSPORT = 'peer'` still works end to end, proving nothing above the transport changed.
+5. `npm test` passes: the loadtest and the relay server test.
 
 ### 11b. Saves, checkpointed at scene boundaries
 

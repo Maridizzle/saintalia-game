@@ -33,6 +33,16 @@
 // render identically during comparison.
 const DEBUG = true;
 
+// PHASE 11a. Which transport carries messages between the two players.
+//   'auto'   try the Railway relay first. If /api/ws-token is not there,
+//            which is the case on GitHub Pages or when the server is down,
+//            fall back to PeerJS for this session. Same files on both hosts.
+//   'relay'  the Railway relay only.
+//   'peer'   PeerJS only. The pre-Phase-11 path, kept for comparison.
+// Nothing below the transport changes: S.conn.send and the dispatcher look
+// the same to every scene whichever one is live.
+const TRANSPORT = 'auto';
+
 const VEIL_WORDS_A = [
   'ashveil','duskbone','mirethall','crestfall','thornmire',
   'gallowhush','embervane','sablewick','grimfallow','wolvenmere'
@@ -57,7 +67,14 @@ const S = {
   // setupConnection from which side opened the connection, never re-read from
   // the lobby tab. Defaults true so a client that somehow reaches the game
   // screen without a connection still narrates rather than waiting forever.
-  isHost: true
+  isHost: true,
+
+  // PHASE 11a. Relay session, or null. Only one of S.peer and S.relay is
+  // ever live. transportUsed is set to 'peer' when auto mode falls back, so
+  // the fallback sticks for the session instead of retrying the relay on
+  // every step.
+  relay: null,
+  transportUsed: null
 };
 
 // ---- SCREEN CLASS ----
@@ -106,9 +123,16 @@ function goToStep(stepId) {
   // The !S.peer guard matters too: going back to Change Sides and forward
   // again used to destroy the live peer and mint a new code, stranding
   // anyone who already had the old one.
-  if (stepId === 'step-connect' && !S.peer) {
+  if (stepId === 'step-connect' && !S.peer && !S.relay) {
     initPeerWithCode(generateRoomCode());
   }
+}
+
+// PHASE 11a. True when this session should use the relay.
+function useRelay() {
+  if (TRANSPORT === 'relay') return true;
+  if (TRANSPORT === 'peer') return false;
+  return S.transportUsed !== 'peer';
 }
 
 // ---- ACTION TABS ----
@@ -192,8 +216,15 @@ function initPeer() {
   }
 }
 
-// Re-initialize with roomCode as peerId so joiner can connect by code
+// PHASE 11a. The host's entry point, called by goToStep. Picks the transport;
+// the PeerJS body below is unchanged and now lives in peerInitWithCode.
 function initPeerWithCode(code) {
+  if (useRelay()) return relayStart(code, 'host');
+  peerInitWithCode(code);
+}
+
+// Re-initialize with roomCode as peerId so joiner can connect by code
+function peerInitWithCode(code) {
   if (S.peer) { S.peer.destroy(); S.peer = null; }
 
   setCreateStatus('Binding your code to the veil...', 'waiting');
@@ -256,6 +287,7 @@ function initPeerWithCode(code) {
 // which leaks a live peer holding its ID on the broker. The next attempt to
 // register the same ID then fails with unavailable-id against your own ghost.
 function destroyPeer() {
+  relayClose();   // PHASE 11a. Whichever transport is live, this resets it.
   if (!S.peer) return;
   try { S.peer.destroy(); } catch(e) { /* already gone */ }
   S.peer = null;
@@ -270,10 +302,18 @@ function joinRoom() {
     return;
   }
 
-  const targetId = 'saintalia-' + raw.replace(/[^a-z0-9-]/g, '');
+  const code = raw.replace(/[^a-z0-9-]/g, '');
 
   setJoinStatus('Reaching through the veil...', 'waiting');
   document.getElementById('btn-join').disabled = true;
+
+  // PHASE 11a. Transport split. The PeerJS body is unchanged in peerJoin.
+  if (useRelay()) return relayStart(code, 'join');
+  peerJoin(code);
+}
+
+function peerJoin(code) {
+  const targetId = 'saintalia-' + code;
   dbg('state', 'joining ' + targetId);
 
   destroyPeer();
@@ -394,29 +434,272 @@ function dispatchMessage(data) {
 }
 
 // Shown on whichever lobby panel is live, or as a banner once the game has
-// started and the lobby DOM is gone.
-function setLinkLost(msg) {
+// started and the lobby DOM is gone. PHASE 11a added the type, so a reconnect
+// in progress reads as waiting rather than as an error.
+function setLinkLost(msg, type, asHost) {
+  type = type || 'error';
+  // S.isHost defaults to true until a connection latches it, so a joiner
+  // refused before that point would be routed to the hidden create panel.
+  // Callers that know which side they are say so; otherwise S.isHost stands.
+  if (asHost === undefined) asHost = S.relay ? S.relay.mode === 'host' : S.isHost;
   const create = document.getElementById('create-status-area');
   const join = document.getElementById('join-status-area');
   if (create || join) {
-    if (S.isHost && create) setCreateStatus(msg, 'error');
-    else if (join) setJoinStatus(msg, 'error');
+    if (asHost && create) setCreateStatus(msg, type);
+    else if (join) setJoinStatus(msg, type);
     return;
   }
   let banner = document.getElementById('link-lost');
   if (!banner) {
     banner = document.createElement('div');
     banner.id = 'link-lost';
-    banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9998;padding:0.5rem;text-align:center;font-family:Cinzel,serif;font-size:0.8rem;letter-spacing:0.15em;background:rgba(139,26,26,0.92);color:#f5efe0;';
+    banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9998;padding:0.5rem;text-align:center;font-family:Cinzel,serif;font-size:0.8rem;letter-spacing:0.15em;color:#f5efe0;';
     document.body.appendChild(banner);
   }
+  banner.style.background = type === 'error' ? 'rgba(139,26,26,0.92)' : 'rgba(45,27,78,0.92)';
   banner.textContent = msg;
+}
+
+// PHASE 11a. The link came back. Only the in-game banner needs removing; a
+// lobby status area is overwritten by whatever status comes next.
+function clearLinkLost() {
+  const banner = document.getElementById('link-lost');
+  if (banner && banner.parentNode) banner.parentNode.removeChild(banner);
+}
+
+// ---- RELAY TRANSPORT (PHASE 11a) ----
+// The Railway server forwards messages between the two seats of a room. See
+// server/index.js for the protocol. Everything here is about getting a
+// socket, keeping it, and turning its messages into dispatchMessage calls.
+//
+// S.conn for the relay is a two-property object, because that is all the
+// sixteen call sites use: `open` and `send`. `open` means we have a room and
+// a partner. It stays true through a socket blip, so callers keep sending
+// and the message waits in the outbox instead of vanishing.
+
+const RELAY_OUTBOX_CAP = 100;
+const RELAY_RETRY_MAX_MS = 15000;
+
+function relayMakeConn() {
+  return {
+    open: false,
+    send(obj) {
+      const R = S.relay;
+      if (!R) return;
+      const raw = JSON.stringify(obj);
+      if (R.joined && R.ws && R.ws.readyState === 1) {
+        R.ws.send(raw);
+      } else {
+        R.outbox.push(raw);
+        if (R.outbox.length > RELAY_OUTBOX_CAP) R.outbox.shift();
+      }
+    }
+  };
+}
+
+function relayUrl(token) {
+  const proto = location.protocol === 'https:' ? 'wss://' : 'ws://';
+  return proto + location.host + '/ws?token=' + encodeURIComponent(token);
+}
+
+async function relayToken() {
+  const r = await fetch('/api/ws-token', { cache: 'no-store' });
+  if (!r.ok) throw new Error('no relay (' + r.status + ')');
+  return (await r.json()).token;
+}
+
+// Entry point for both sides. mode is 'host' or 'join'.
+function relayStart(code, mode) {
+  relayClose();
+  S.relay = { code, mode, seat: null, ws: null, joined: false, outbox: [], attempts: 0, closing: false, timer: null };
+  S.conn = relayMakeConn();
+  S.roomCode = code;
+  if (mode === 'host') setCreateStatus('Binding your code to the veil...', 'waiting');
+  dbg('state', mode === 'host' ? 'relay: opening room' : 'relay: joining ' + code);
+  relayConnect();
+}
+
+async function relayConnect() {
+  const R = S.relay;
+  if (!R || R.closing) return;
+
+  let token;
+  try {
+    token = await relayToken();
+  } catch (e) {
+    if (S.relay !== R || R.closing) return;
+    // No token endpoint on a first attempt means there is no server here
+    // (GitHub Pages) or it is down. In auto mode, use PeerJS for this session.
+    if (TRANSPORT === 'auto' && R.attempts === 0 && !R.seat) { relayFallbackToPeer(e); return; }
+    relayScheduleReconnect();
+    return;
+  }
+  if (S.relay !== R || R.closing) return;   // closed while the token was in flight
+
+  const ws = new WebSocket(relayUrl(token));
+  R.ws = ws;
+  R.joined = false;
+
+  ws.onopen = () => {
+    // wasHost matters only on a reconnect after the server restarted and
+    // forgot the room. It rebuilds the room around this seat and keeps the
+    // host where it was. See handleRelayJoin in server/index.js.
+    ws.send(JSON.stringify({ type: 'relay-join', room: R.code, mode: R.mode, seat: R.seat || '', wasHost: !!(R.seat && S.isHost) }));
+  };
+  ws.onmessage = (ev) => {
+    let msg;
+    try { msg = JSON.parse(ev.data); } catch (e) { return; }
+    if (S.relay === R) relayHandleMessage(msg);
+  };
+  ws.onclose = () => {
+    if (S.relay !== R || R.ws !== ws) return;   // stale socket
+    R.ws = null;
+    R.joined = false;
+    if (R.closing) return;
+    relayOnDrop();
+    relayScheduleReconnect();
+  };
+  ws.onerror = () => { /* close follows */ };
+}
+
+function relayScheduleReconnect() {
+  const R = S.relay;
+  if (!R || R.closing || R.timer) return;
+  R.attempts += 1;
+  const delay = Math.min(1000 * Math.pow(2, R.attempts - 1), RELAY_RETRY_MAX_MS);
+  dbg('state', 'relay: retry in ' + Math.round(delay / 1000) + 's');
+  R.timer = setTimeout(() => { R.timer = null; relayConnect(); }, delay);
+}
+
+function relayHandleMessage(msg) {
+  const R = S.relay;
+  if (!R || !msg || typeof msg.type !== 'string') return;
+
+  switch (msg.type) {
+    case 'relay-welcome': {
+      R.seat = msg.seat;
+      R.joined = true;
+      R.attempts = 0;
+      // PHASE 3f, finished. Host identity comes from the server, which knows
+      // who opened the room, never from the lobby tab.
+      S.isHost = !!msg.isHost;
+      dbg('peer', 'relay seat ' + String(msg.seat).slice(0, 8));
+      dbg('room', R.code);
+      dbg('role', S.role + (S.isHost ? ' (host)' : ' (joiner)'));
+
+      const backlog = R.outbox.splice(0);
+      if (R.ws) backlog.forEach(raw => R.ws.send(raw));
+
+      if (msg.reconnect) { relayOnRestored(); return; }
+
+      if (S.isHost) {
+        const display = document.getElementById('room-code-display');
+        const box = document.getElementById('code-display');
+        if (display) display.textContent = R.code;
+        if (box) box.style.display = 'block';
+        setCreateStatus('The veil is open. Waiting for the other side...', 'waiting');
+        dbg('state', 'open with code, waiting for joiner');
+      }
+      if (msg.peerPresent) relayPairComplete();
+      return;
+    }
+    case 'relay-peer-joined':
+      relayPairComplete();
+      return;
+    case 'relay-peer-dropped':
+      dbg('conn', 'peer dropped, holding');
+      setLinkLost('The other side is fraying. Holding the veil open...', 'waiting');
+      return;
+    case 'relay-peer-reconnected':
+      dbg('conn', 'peer back');
+      clearLinkLost();
+      return;
+    case 'relay-refused':
+      relayRefused(msg.reason);
+      return;
+    default:
+      dispatchMessage(msg);
+  }
+}
+
+// Both seats are present. Same moment PeerJS's conn.on('open') marked:
+// mark the connection open and send the handshake the lobby waits for.
+function relayPairComplete() {
+  if (!S.conn) return;
+  S.conn.open = true;
+  S.connected = true;
+  dbg('conn', (S.isHost ? 'host' : 'joiner') + ' - OPEN');
+  dbg('state', 'connected');
+  S.conn.send({ type: 'handshake', role: S.role, msg: 'The veil holds.' });
+}
+
+function relayRefused(reason) {
+  const R = S.relay;
+  dbg('state', 'relay refused: ' + reason);
+  if (reason === 'room-taken' && R && R.mode === 'host') {
+    // Same word pair as someone else's open room. Mint another, as the
+    // PeerJS path did on unavailable-id.
+    const code = R.code;
+    relayClose();
+    setTimeout(() => { if (!S.relay && !S.peer) relayStart(generateRoomCode(), 'host'); }, 500);
+    dbg('state', 'code ' + code + ' taken, minting another');
+    return;
+  }
+  const msg = reason === 'no-room'
+    ? 'No veil is open on that code. Check it with your companion, letter for letter.'
+    : reason === 'room-full'
+      ? 'That code already has two players on it.'
+      : 'The veil refused: ' + reason;
+  const asHost = !!(R && R.mode === 'host');
+  relayClose();
+  const btn = document.getElementById('btn-join');
+  if (btn) btn.disabled = false;
+  setLinkLost(msg, 'error', asHost);
+}
+
+function relayOnDrop() {
+  dbg('state', 'relay dropped, reconnecting');
+  setLinkLost('The veil is fraying. Reaching back through...', 'waiting');
+}
+
+function relayOnRestored() {
+  dbg('state', S.connected ? 'connected' : 'open with code, waiting for joiner');
+  clearLinkLost();
+  if (!S.connected && S.isHost) setCreateStatus('The veil is open. Waiting for the other side...', 'waiting');
+}
+
+// Auto mode found no relay on the first try. Use PeerJS for this session.
+function relayFallbackToPeer(err) {
+  const R = S.relay;
+  const code = R ? R.code : null;
+  const mode = R ? R.mode : null;
+  relayClose();
+  S.transportUsed = 'peer';
+  dbg('state', 'no relay here, using peer (' + (err && err.message ? err.message : err) + ')');
+  if (mode === 'host') peerInitWithCode(code);
+  else if (mode === 'join') peerJoin(code);
+}
+
+function relayClose() {
+  const R = S.relay;
+  if (!R) return;
+  R.closing = true;
+  if (R.timer) { clearTimeout(R.timer); R.timer = null; }
+  if (R.ws) { try { R.ws.close(); } catch (e) { /* already gone */ } R.ws = null; }
+  S.relay = null;
+  if (S.conn && typeof S.conn.send === 'function' && !S.peer) { S.conn.open = false; S.conn = null; }
+  S.connected = false;
 }
 
 // ---- LOBBY MESSAGE HANDLERS ----
 
 onMessage('handshake', () => {
   S.connected = true;
+
+  // PHASE 11a. A handshake can arrive again mid-game, after both sides
+  // re-pair through a server restart. The lobby DOM is gone by then and
+  // there is nothing to do; the scene carries on.
+  if (!document.getElementById('step-ready')) return;
 
   if (S.isHost) {
     setCreateStatus('Connected. Both sides of the veil are present.', 'connected');
@@ -478,13 +761,18 @@ function launchGame() {
 
 // ---- LOBBY UI HELPERS ----
 
+// PHASE 11a. Both guard for a missing area. The relay can report status
+// after the lobby DOM is gone, and a null here used to throw inside the
+// socket's message handler.
 function setCreateStatus(msg, type) {
   const area = document.getElementById('create-status-area');
+  if (!area) return;
   area.innerHTML = `<div class="status-msg ${type}">${msg}</div>`;
 }
 
 function setJoinStatus(msg, type) {
   const area = document.getElementById('join-status-area');
+  if (!area) return;
   area.innerHTML = `<div class="status-msg ${type}">${msg}</div>`;
 }
 
