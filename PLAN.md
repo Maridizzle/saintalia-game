@@ -36,6 +36,8 @@ Verified by `node game/test/loadtest.js`, which mounts every scene in order as b
 
 **Phase 7, The Dream, is DEFERRED** until that run works end to end. It is still going to be built, just not first.
 
+**Added 2026-09-19, Maridizzle's call: Phase 11, migrate the game to Railway, deep.** The PeerJS layer and static hosting are the root of the connection instability and make a private two-sided save awkward. Phase 11 replaces the transport, adds server-side saves, moves narration server-side, and carries the back button. Its order relative to Phase 7 is not yet decided.
+
 Two things that follow from this, both deliberate and both temporary:
 
 - The 15 Questions will interrogate both players about a veil The Dream was supposed to show them. That hole closes when Phase 7 happens.
@@ -389,13 +391,15 @@ Most of this already happened out of order, because Maridizzle deployed early to
 
 Still outstanding: the default branch is `claude/initial-game-import` and should be `main`. Settings, General, Default branch. Only Maridizzle can make that click.
 
+Phase 11 moves the deploy target to Railway. Pages keeps serving the static build until Maridizzle retires it. Nothing here is undone.
+
 Gate: two people on two networks play the whole thing through the live URL.
 
 ## Phase 10 -- Backlog (order to be set by Maridizzle)
 
 Each gets its own mini-plan and gate when its turn comes. None start without a go.
 
-- Save and resume. Serialize characters, shared state, scene state, and inventory to localStorage. Resume screen on the lobby. Peer reconnection using the saved room code. Never clear a save without a typed confirmation from the player.
+- Save and resume. Serialize characters, shared state, scene state, and inventory to localStorage. Resume screen on the lobby. Peer reconnection using the saved room code. Never clear a save without a typed confirmation from the player. **Superseded by Phase 11b**, which puts saves on the server instead of localStorage. Kept here for the record.
 - Scoring variables. Bring `veilDeath`, `hopelessness`, `veilKnowledge`, `voidCorruption` into game state proper. Confirm with Maridizzle before changing anything on Railway.
 - Inventory system. Role and job specific starting items; four types (Sellable, Breakable, Losable, Key); sliding drawer UI; break checks keyed to stat, roll of 1 always breaks, 20 always holds; items pass through the veil arriving corrupted. Item roster comes from a separate design document. Do not invent items.
 - Radial action wheel. Replaces the choice buttons. Floats and pulses when choices are available, disappears after selection. Custom action field stays.
@@ -405,6 +409,108 @@ Each gets its own mini-plan and gate when its turn comes. None start without a g
 - Character avatar upload. Multiple images per character keyed to state (calm, drained, marked). Stored as data URIs in the save.
 - Mural redraw. Replace the six SVG layers with the established progression. The current SVG paths and the six captions in `MURAL_LAYERS` both predate it. Art direction from Maridizzle, one layer at a time.
 - The ten-theme system and reduce-motion toggle, if that build is ever found. Not in this repo.
+
+## Phase 11 -- Migrate the game to Railway (deep)
+
+Maridizzle's call, 2026-09-19. This supersedes "static browser app, no backend for the game itself" in CLAUDE.md, the PeerJS layer, and the Phase 10 save-and-resume item. CLAUDE.md's "What this is" gets updated when 11a lands, not before.
+
+**Why.** PeerJS depends on a free public broker with no SLA and on WebRTC through phone NAT. It has no reconnect path. It makes one player's browser the authority for every turn, which is where most of the Phase 3 bugs came from. A server relay removes all four. A save that reveals neither side to the other becomes one table instead of two local files.
+
+**What does not get simpler, so nobody expects it to.** The back button's DOM work and its both-sides handshake. Mid-scene restore. Storage does not teach a scene how to re-render itself.
+
+**Shape.** A Node server in this repo (`server/`), deployed as a second Railway service in the same project as the mindmap, sharing its Postgres. Pattern copied from `Maridizzle/saintalia/server.js`: Express, `pg`, HTTP Basic Auth on everything, secrets in env only. The server serves `game/` as static. Pages keeps serving the current static build until Maridizzle retires it.
+
+**Ground rules for the whole phase.**
+
+- Claude changes nothing on Railway. Claude writes files. Maridizzle creates the service, sets env vars, and deploys.
+- No credentials in chat, in files, or in the repo. `DATABASE_URL`, `APP_PASSWORD`, `GROQ_API_KEY` exist only as Railway env vars.
+- The 16 `S.conn.send` call sites and every `onMessage` handler are untouched. The transport swaps underneath them. Verified before this plan was written: zero direct PeerJS references exist outside `connection.js`.
+- The PeerJS path stays in the repo behind a flag. Nothing is deleted.
+- One shared `APP_PASSWORD` gates the whole game, same as the mindmap. Maridizzle hands it to players. No accounts.
+
+### 11a. The relay (replaces PeerJS)
+
+Server:
+
+- `server/index.js`, `server/package.json`. Express plus `ws`. Static `game/`.
+- One WebSocket endpoint, `/ws`, joined with a room code and a role. The server holds up to two sockets per room and forwards every message from one to the other verbatim. It does not parse game messages in this step.
+- The first socket in a room is told `isHost: true`, the second `isHost: false`. Host identity comes from the server, never from a lobby tab. Closes Phase 3f for good.
+- A socket that reconnects with the same room and role replaces the old one. The other side receives `peer-reconnected`.
+- Rooms with no sockets for 30 minutes are dropped from memory. No database in this step.
+
+Client, `connection.js` only:
+
+- A `TRANSPORT` flag at the top: `'relay'` (default) or `'peer'`. The `peer` value keeps the current path alive for comparison.
+- Relay equivalents of `initPeer`, `initPeerWithCode`, `joinRoom`, `setupConnection`. `S.conn.send(obj)` becomes a JSON send on the socket. Incoming messages feed `dispatchMessage` unchanged.
+- Auto-reconnect with backoff on socket close. The existing status area shows "the veil flickers" while it retries.
+- Room codes stay VEIL_WORDS_A plus VEIL_WORDS_B.
+
+Gate 11a, two devices on two networks, one of them a phone on cellular:
+
+1. Create, join, character creation, Opening turn one on both sides.
+2. Kill the phone's browser mid-Lockdown. Reopen. Same room code. It reconnects and both sides continue.
+3. `TRANSPORT = 'peer'` still works end to end, proving nothing above the transport changed.
+4. `node game/test/loadtest.js` passes.
+
+### 11b. Saves, checkpointed at scene boundaries
+
+Server:
+
+- Table `saintalia_game`: `room`, `role`, `slot`, `shared JSONB`, `private JSONB`, `updated_at`. Primary key `(room, role, slot)`. Created on boot the way the mindmap creates its table.
+- `POST /api/save` writes one row for the calling role. `GET /api/save` returns only that role's row. A role can never fetch the other role's private half. The server enforces it; the client is not given the choice.
+- A per-player secret. On room creation the server issues one random token per role, shown once beside the room code with "write this down." It is sent as a header on every save and load. A row cannot be read without the token for its role.
+
+Client:
+
+- A Save button in the game chrome on both sides. It sends `save-request` through the relay; both clients write their own row under the same slot (scene id, turn, timestamp). Confirmation on both screens.
+- An automatic checkpoint at every `scene-advance`, same mechanism, slot `auto`.
+- A Resume panel on the lobby lists this role's slots for the room. Both players pick the same slot. The host sends `resume` with the shared half, each side restores its own private half, and `mountScene` lands at the saved scene.
+- Shared half: scene id, turn, veil, mural layer, notes thread, both characters.
+- Private half: Lockdown object state and grid, each side's own choices, hidden answers. Scoring variables, once they exist, sit in the host's private half base64 encoded, so the silent design does not leak the moment someone reads the row. That is obfuscation, not encryption, and it is enough for two people who trust each other.
+- The Groq key is never in any save.
+- Never delete a save. Slots accumulate. Maridizzle decides retention.
+
+Out of scope, stated so it is not assumed: mid-scene restore. Resume always lands at the start of the saved scene. Any-time saves are a later phase and need a `restore()` on every scene.
+
+Gate 11b:
+
+1. Save at the Lockdown boundary. Close both browsers. Resume from the lobby on both. Land on the Lockdown together.
+2. Request the reality row with the fantasy token. 403.
+3. Read the row in Postgres. The shared half is plain; the private halves are opaque.
+
+### 11c. Server-side narration
+
+Server:
+
+- `POST /api/narrate` proxies Groq with `GROQ_API_KEY` from env. Same shape as the mindmap's `/api/chat`. Rate limited per room in memory.
+- Turn resolution moves to the server: it collects both `player-choice` messages for a turn, builds the prompt, calls Groq, and broadcasts `narrator-update` to both sockets. The 25 second timeout and the offline fallback move with it.
+
+Client:
+
+- Lobby Step III, the key box, is hidden, not removed. The `skipGroq` path stays for offline play.
+- `requestNarration` calls `/api/narrate`. The `narrate-request` and `narrate-response` handlers stay registered for the `peer` transport.
+- Every `isHost` gate in narration code is reviewed one at a time. Some stay (who sends `begin`). Some go (who calls Groq).
+
+Gate 11c:
+
+1. Both players see the same narration for the same turn with no key entered by anyone.
+2. Kill the host's browser during a Groq call. The joiner still receives the turn.
+3. `TRANSPORT = 'peer'` with a key still narrates, proving the fallback lives.
+
+### 11d. The back button
+
+Not a Railway item, but it is the question that started this phase, and the first-scene back needs the relay's handshake.
+
+- Screens stop being wiped. `connection.js:475` and `game.js:77` render into a container and hide the previous screen under the `screen-*` class instead of replacing `body.innerHTML`.
+- Character tab 1 gains "Change Sides" back to the lobby. Local only, nothing has been sent yet.
+- The first scene gains "Back to character creation." It sends `char-reopen`; both sides return, both re-finalize, `checkBothReady` fires again, `G` resets.
+- No in-scene undo. Undo would let a player replay a choice until the silent score came out right. Recorded as a decision. Maridizzle can reverse it.
+
+Gate 11d, on a phone: lobby to character to Opening, back to character, back to lobby, forward again, and the game starts clean on both sides.
+
+### Order
+
+11a, then 11d, then 11b, then 11c. Each is one PR-sized change, verified on two devices before the next starts. Maridizzle creates the Railway service and its env vars before Gate 11a can run. Nothing is committed or pushed by Claude at any step.
 
 ## Session hygiene
 
