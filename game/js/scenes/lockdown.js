@@ -42,7 +42,8 @@ function lkReset() {
     foundCount: 0,
     thinking: false,
     ctx: null,
-    complete: false
+    complete: false,
+    log: []
   };
 }
 
@@ -51,6 +52,7 @@ function lkReset() {
 // functions of similar purpose and different signature.
 
 function lkEntry(tag, text, type) {
+  if (LK) LK.log.push({ tag: tag, text: text, type: type });
   const feed = document.getElementById('lkFeed');
   if (!feed) return;
   const entry = document.createElement('div');
@@ -383,6 +385,11 @@ const SceneLockdown = {
     LK.ctx = ctx;
     setScreen('game');
 
+    if (ctx.restoring && ctx.restore) {
+      this._restore(root, ctx);
+      return;
+    }
+
     const isArtist = (ctx.role === 'reality');
     root.className = 'lk-wrap ' + (isArtist ? 'lk-artist-side' : 'lk-p2-side');
 
@@ -427,6 +434,89 @@ const SceneLockdown = {
 
   exportState() {
     return LK ? { found: Object.keys(LK.found), roomId: LK.roomId, complete: LK.complete } : null;
+  },
+
+  snapshot() {
+    if (!LK) return null;
+    return {
+      roomId: LK.roomId,
+      found: LK.found,
+      foundCount: LK.foundCount,
+      complete: LK.complete,
+      log: LK.log
+    };
+  },
+
+  _restore(root, ctx) {
+    const r = ctx.restore;
+    LK.roomId = r.roomId || 'entrance';
+    LK.found = r.found || {};
+    LK.foundCount = r.foundCount || 0;
+    LK.complete = r.complete || false;
+    LK.log = r.log || [];
+    LK.ctx = ctx;
+
+    const isArtist = (ctx.role === 'reality');
+    root.className = 'lk-wrap ' + (isArtist ? 'lk-artist-side' : 'lk-p2-side');
+    root.innerHTML = isArtist ? this._artistHtml(ctx) : this._p2Html(ctx);
+
+    if (isArtist) {
+      lkUpdateRoomIndicator();
+      const feed = document.getElementById('lkFeed');
+      LK.log.forEach(entry => {
+        if (!feed) return;
+        const el = document.createElement('div');
+        el.className = 'story-entry ' + entry.type;
+        const t = document.createElement('span');
+        t.className = 'entry-tag';
+        t.textContent = entry.tag;
+        const b = document.createElement('div');
+        b.className = 'entry-body';
+        b.textContent = entry.text;
+        el.appendChild(t);
+        el.appendChild(b);
+        feed.appendChild(el);
+      });
+      if (feed) feed.scrollTop = feed.scrollHeight;
+
+      const inp = document.getElementById('lkInput');
+      if (inp) inp.addEventListener('keydown', e => { if (e.key === 'Enter' && !LK.thinking) lkAct(); });
+    } else {
+      lkBuildGrid();
+      lkMoveMarker(LK.roomId);
+      lkUpdatePills();
+      Object.keys(LK.found).forEach(objId => {
+        const obj = LOCKDOWN_OBJECTS[objId];
+        if (!obj) return;
+        const dot = document.getElementById('lkDot-' + obj.pointId);
+        if (dot) dot.classList.add('touched');
+      });
+      if (LK.foundCount > 0) {
+        const empty = document.getElementById('lkFlashEmpty');
+        if (empty) empty.remove();
+        const flashLog = document.getElementById('lkFlashLog');
+        if (flashLog) {
+          Object.keys(LK.found).forEach(objId => {
+            const obj = LOCKDOWN_OBJECTS[objId];
+            if (!obj) return;
+            const flashText = LOCKDOWN_FLASHES[obj.flashName];
+            const item = document.createElement('div');
+            item.className = 'flash-item';
+            const name = document.createElement('span');
+            name.className = 'flash-item-name';
+            name.textContent = obj.flashName + ' -- ' + obj.name;
+            item.appendChild(name);
+            item.appendChild(document.createTextNode(flashText));
+            flashLog.appendChild(item);
+          });
+        }
+      }
+    }
+
+    if (LK.complete) lkMarkComplete();
+    lkReplayNotes();
+    const noteInput = document.getElementById('noteInput');
+    if (noteInput) noteInput.addEventListener('keydown', e => { if (e.key === 'Enter') sendNote(S.role); });
   },
 
   _artistHtml(ctx) {

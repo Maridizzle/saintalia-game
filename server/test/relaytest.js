@@ -113,6 +113,21 @@ async function main() {
   B2.send({ type: 'note', text: 'back' });
   check('forwarding resumes', (await A.next('note')).text, 'back');
 
+  // ---- snapshot store and return ----
+  A.send({ type: 'relay-snapshot', data: { role: 'reality', turn: 3 } });
+  await new Promise(r => setTimeout(r, 100));
+  check('snapshot not forwarded', B2.inbox.filter(m => m.type === 'relay-snapshot').length, 0);
+  B2.send({ type: 'relay-snapshot', data: { role: 'fantasy', veil: 42 } });
+  await new Promise(r => setTimeout(r, 100));
+  B2.close();
+  await A.next('relay-peer-dropped');
+  const B3 = await client();
+  B3.send({ type: 'relay-join', room: 'test-room', mode: 'join', seat: wB.seat });
+  const wB3 = await B3.next('relay-welcome');
+  check('snapshot in welcome', wB3.snapshot && wB3.snapshot.role, 'fantasy');
+  check('snapshot data intact', wB3.snapshot && wB3.snapshot.veil, 42);
+  await A.next('relay-peer-reconnected');
+
   // ---- refusals ----
   const C = await client();
   C.send({ type: 'relay-join', room: 'test-room', mode: 'join', seat: '' });
@@ -162,7 +177,7 @@ async function main() {
   const h = await (await fetch(BASE + '/api/health', { headers: { Authorization: AUTH } })).json();
   check('health counts rooms', h.rooms, 2);
 
-  A.close(); B2.close();
+  A.close(); B3.close();
 }
 
 const server = spawn(process.execPath, [path.join(__dirname, '..', 'index.js')], {

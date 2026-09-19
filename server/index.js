@@ -202,7 +202,8 @@ function seatSocket(ws, room, code, seatId, isReconnect) {
     seat: seatId,
     isHost: room.hostSeat === seatId,
     peerPresent: !!(other && socketLive(other.ws)),
-    reconnect: isReconnect
+    reconnect: isReconnect,
+    snapshot: seat.snapshot || null
   });
 
   // Whatever the other side said while this seat was away.
@@ -226,6 +227,20 @@ function forward(ws, raw) {
     target.pending.push(raw);
     if (target.pending.length > PENDING_CAP) target.pending.shift();
   }
+}
+
+// PHASE 11b. A seat's snapshot, stored per seat, returned in the welcome on
+// a reconnect. Never forwarded to the other seat. Capped at 256 KB so a
+// rogue client cannot eat the server's memory.
+function handleSnapshot(ws, msg) {
+  const room = rooms.get(ws.saintaliaRoom);
+  if (!room) return;
+  const seat = room.seats.get(ws.saintaliaSeat);
+  if (!seat) return;
+  const raw = JSON.stringify(msg.data != null ? msg.data : {});
+  if (Buffer.byteLength(raw) > 256 * 1024) return;
+  seat.snapshot = msg.data;
+  room.touched = Date.now();
 }
 
 function handleClose(ws) {
@@ -285,6 +300,7 @@ wss.on('connection', (ws) => {
 
     if (msg.type === 'relay-join') return handleRelayJoin(ws, msg);
     if (!ws.saintaliaRoom) return sendJson(ws, { type: 'relay-refused', reason: 'not-joined' });
+    if (msg.type === 'relay-snapshot') return handleSnapshot(ws, msg);
     forward(ws, raw);
   });
 

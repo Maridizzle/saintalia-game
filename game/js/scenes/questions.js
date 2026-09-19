@@ -40,7 +40,8 @@ function qReset() {
     currentQuestion: null,
     started: false,
     ended: false,
-    ctx: null
+    ctx: null,
+    log: []
   };
 }
 
@@ -94,6 +95,7 @@ function qCharDescriptor(side) {
 
 // Newest first, exactly as the sandbox does it.
 function qEntry(text, type, tag) {
+  if (Q) Q.log.push({ text: text, type: type, tag: tag || null });
   const scroll = document.getElementById('qFeed');
   if (!scroll) return;
   const el = document.createElement('div');
@@ -359,6 +361,11 @@ const SceneQuestions = {
     Q.ctx = ctx;
     setScreen('game');
 
+    if (ctx.restoring && ctx.restore) {
+      this._restore(root, ctx);
+      return;
+    }
+
     root.className = 'q-wrap ' + (ctx.role === 'fantasy' ? 'fantasy-side' : 'reality-side');
     root.innerHTML = `
       <div class="q-header">
@@ -456,6 +463,87 @@ const SceneQuestions = {
 
   exportState() {
     return Q ? { asked: Q.questionsAsked, used: Q.usedIds.slice(), ended: Q.ended } : null;
+  },
+
+  snapshot() {
+    if (!Q) return null;
+    return {
+      usedIds: Q.usedIds.slice(),
+      questionsAsked: Q.questionsAsked,
+      currentAsker: Q.currentAsker,
+      started: Q.started,
+      ended: Q.ended,
+      log: Q.log
+    };
+  },
+
+  _restore(root, ctx) {
+    const r = ctx.restore;
+    Q.usedIds = r.usedIds || [];
+    Q.questionsAsked = r.questionsAsked || 0;
+    Q.currentAsker = r.currentAsker || null;
+    Q.started = r.started || false;
+    Q.ended = r.ended || false;
+    Q.log = r.log || [];
+    Q.ctx = ctx;
+
+    root.className = 'q-wrap ' + (ctx.role === 'fantasy' ? 'fantasy-side' : 'reality-side');
+    root.innerHTML = `
+      <div class="q-header">
+        <div class="q-title">The 15 Questions</div>
+        <div class="pool-badge" id="qPool">Pool: ${QUESTIONS_POOL.filter(q => !Q.usedIds.includes(q.id)).length}</div>
+        <div class="q-turn" id="qTurnHeader">--</div>
+      </div>
+      <div class="q-body">
+        <div class="my-deck" id="qDeckWrap">
+          <div class="deck-header">
+            <div class="deck-name-label">${qNameOf(ctx.role)}</div>
+            <div class="deck-char-label">${ctx.me && ctx.me.race ? ctx.me.race.name : ''} ${ctx.me && ctx.me.job ? ctx.me.job.name : ''}</div>
+          </div>
+          <div class="deck-body" id="qDeck"></div>
+        </div>
+        <div class="q-center">
+          <div class="center-header"><div class="center-label">The Exchange</div></div>
+          <div class="center-scroll" id="qFeed"></div>
+          <div class="thinking-center" id="qThinking">the veil considers...</div>
+          <div class="center-footer">
+            <div class="turn-text" id="qTurn">--</div>
+          </div>
+        </div>
+      </div>
+      <button class="btn-primary" id="qContinue" style="display:none" onclick="requestAdvance()">The veil has heard enough</button>
+    `;
+
+    const feed = document.getElementById('qFeed');
+    if (feed) {
+      Q.log.forEach(entry => {
+        const el = document.createElement('div');
+        el.className = 'entry ' + entry.type;
+        if (entry.tag) {
+          const t = document.createElement('span');
+          t.className = 'entry-tag';
+          t.textContent = entry.tag;
+          el.appendChild(t);
+        }
+        const p = document.createElement('p');
+        p.textContent = entry.text;
+        el.appendChild(p);
+        feed.insertBefore(el, feed.firstChild);
+      });
+      feed.scrollTop = 0;
+    }
+
+    if (Q.ended) {
+      qUpdateTurnText('The exchange is complete.');
+      const body = qDeck();
+      if (body) body.innerHTML = '<div class="empty-state">The exchange is complete.</div>';
+      const cont = document.getElementById('qContinue');
+      if (cont) cont.style.display = 'block';
+    } else if (Q.started) {
+      qRenderMyTurn();
+    } else {
+      qWaiting('Reconnected. Waiting for the exchange to resume...');
+    }
   }
 };
 

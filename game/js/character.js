@@ -407,6 +407,7 @@ function finalizeCharacter() {
     <div class="sum-stats">${Object.entries(finalStats).map(([k,v])=>`<span class="stat-badge">${k} ${v}</span>`).join('')}</div>
   `;
   checkBothReady();
+  if (typeof scheduleSnapshot === 'function') scheduleSnapshot();
 }
 
 function checkBothReady() {

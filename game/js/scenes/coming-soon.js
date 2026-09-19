@@ -48,6 +48,9 @@ const SceneComingSoon = {
   isComplete() { return true; },
   exportState() {
     return { turns: G.turn - 1, notes: G.notes.length, veil: G.veilStrength };
+  },
+  snapshot() {
+    return { id: COMING_SOON_DEF.id };
   }
 };
 
