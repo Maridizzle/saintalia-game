@@ -80,13 +80,12 @@ function launchActualGame() {
   var charRoot = document.getElementById('screen-char-root');
   if (charRoot) charRoot.style.display = 'none';
 
-  // The run, in play order. The Dream slots in between skytears and
-  // questions when Phase 7 builds it. See PLAN.md "Current priority".
   setSceneOrder([
     'opening',      // the blink, the photo, the misdial
     'lockdown',     // the building seals, five wrong objects
     'escape',       // bridge, unwritten
     'skytears',     // bridge, unwritten
+    'dream',        // beat 2-A, the wall puzzle
     'questions',    // beat 2-B
     'coming-soon'   // the end of what exists
   ]);

@@ -217,6 +217,41 @@ if (registered.includes('lockdown')) {
   check('lk snapshot has log', run("CURRENT_SCENE.snapshot().log.length > 0"), true);
 }
 
+// ---- THE DREAM ----
+if (registered.includes('dream')) {
+  console.log('\nTHE DREAM');
+  check('dream symbols', run('Object.keys(DREAM_SYMBOLS).length'), 5);
+  check('dream flashes', run('DREAM_FLASHES.length'), 5);
+  check('dream slot count', run('DREAM_SLOT_COUNT'), 5);
+  check('symbols match lockdown objects', run(`
+    Object.keys(DREAM_SYMBOLS).every(id => LOCKDOWN_OBJECTS[id]) ? 'yes' : 'MISSING'`), 'yes');
+  check('every flash has guardrail', run(`
+    DREAM_FLASHES.every(f => f.guardrail && f.guardrail.length > 100) ? 'yes' : 'MISSING'`), 'yes');
+  check('every flash has name', run(`
+    DREAM_FLASHES.every(f => f.name && f.id) ? 'yes' : 'MISSING'`), 'yes');
+  check('flash order 1-5', run(`
+    DREAM_FLASHES.map(f => f.id).join(',')`) , '1,2,3,4,5');
+  check('room descriptions present', run(`
+    DREAM_ROOM_ARTIST.length > 100 && DREAM_ROOM_FANTASY.length > 100 ? 'yes' : 'MISSING'`), 'yes');
+  check('feedback text present', run(`
+    DREAM_CORRECT_FEEDBACK.length > 50 && DREAM_WRONG_FEEDBACK.length > 50 ? 'yes' : 'MISSING'`), 'yes');
+  check('intro lines', run('DREAM_INTRO.length'), 3);
+  check('energy drain defined', run('DREAM_ENERGY_DRAIN'), 5);
+  run("S.role='reality'");
+  check('mounts as artist', run("mountScene('dream')"), true);
+  check('slot map builds', run('typeof dmBuildSlotMap'), 'function');
+  var testMap = run('dmBuildSlotMap()');
+  check('slot map has 5 slots', run('Object.keys(dmBuildSlotMap()).length'), 5);
+  check('slot map values are object ids', run(`
+    Object.values(dmBuildSlotMap()).every(id => DREAM_SYMBOLS[id]) ? 'yes' : 'MISSING'`), 'yes');
+  check('dm snapshot has slotMap', run("CURRENT_SCENE.snapshot().slotMap !== undefined"), true);
+  check('dm snapshot has log', run("Array.isArray(CURRENT_SCENE.snapshot().log)"), true);
+  check('dm snapshot placedCount', run("CURRENT_SCENE.snapshot().placedCount"), 0);
+  run("S.role='fantasy'; mountScene('dream')");
+  check('state resets on remount', run("CURRENT_SCENE.snapshot().placedCount"), 0);
+  run("S.role='reality'; mountScene('dream')");
+}
+
 // ---- THE 15 QUESTIONS ----
 if (registered.includes('questions')) {
   console.log('\nTHE 15 QUESTIONS');

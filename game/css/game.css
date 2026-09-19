@@ -1294,6 +1294,152 @@ body.theme-artist .lk-wrap .action-btn { clip-path:none; border-radius:18px; bac
 
 
 /* ============================================================
+   9b. THE DREAM  (Phase 7)
+
+   Scoped under .dm-wrap. Same pattern as .lk-wrap: this scene defines
+   .story-feed, .story-entry, .entry-tag, .thinking-row, and .flash-log,
+   all of which exist unscoped or differently scoped in earlier sections.
+
+   The artist side has object buttons and slot buttons. The fantasy side
+   has symbol cards. Both sides share the note block and flash log.
+============================================================ */
+
+.dm-wrap {
+  display: flex;
+  flex-direction: column;
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 1rem;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.dm-artist, .dm-fantasy { display: flex; flex-direction: column; gap: 0.8rem; }
+
+/* ---- HEADER ---- */
+.dm-wrap .dm-header { display:flex; align-items:center; justify-content:space-between; padding:0.5rem 0.8rem; background:rgba(0,0,0,0.4); border:1px solid rgba(var(--gold-rgb),0.15); }
+.dm-wrap .dm-title { font-family:'Cinzel Decorative',cursive; font-size:clamp(0.8rem,1.6vw,1rem); color:var(--gold-light); }
+.dm-wrap .dm-placed-count { font-family:'Cinzel',serif; font-size:0.68rem; letter-spacing:0.15em; color:var(--bone); opacity:0.55; }
+
+/* ---- STORY FEED (shared) ---- */
+.dm-wrap .story-feed {
+  background:rgba(0,0,0,0.35); border:1px solid rgba(255,255,255,0.06);
+  padding:1rem; min-height:200px; max-height:340px; overflow-y:auto;
+  display:flex; flex-direction:column; gap:0.7rem;
+  scrollbar-width:thin; scrollbar-color:rgba(var(--gold-rgb),0.15) transparent;
+}
+.dm-wrap .story-entry { border-left:2px solid; padding:0.4rem 0.6rem; background:rgba(0,0,0,0.2); }
+.dm-wrap .story-entry.narrator { border-left-color:var(--gold); }
+.dm-wrap .story-entry.flash { border-left-color:var(--mist); background:rgba(var(--mist-rgb),0.06); }
+.dm-wrap .story-entry.action { border-left-color:rgba(255,255,255,0.15); }
+.dm-wrap .story-entry.system { border-left-color:var(--blood); background:rgba(139,26,26,0.06); }
+.dm-wrap .story-entry .entry-tag { font-family:'Cinzel',serif; font-size:0.58rem; letter-spacing:0.2em; text-transform:uppercase; opacity:0.45; display:block; margin-bottom:0.2rem; }
+.dm-wrap .story-entry.flash .entry-tag { color:var(--mist-light); opacity:0.7; }
+.dm-wrap .entry-body { font-size:0.92rem; line-height:1.65; }
+.dm-wrap .story-entry.flash .entry-body { font-style:italic; color:var(--mist-light); }
+
+.dm-wrap .thinking-row { font-family:'Cinzel',serif; font-size:0.72rem; letter-spacing:0.2em; text-transform:uppercase; color:var(--gold); opacity:0; min-height:1.4rem; text-align:center; }
+.dm-wrap .thinking-row.on { opacity:0.6; animation:lk-flicker 1.5s ease-in-out infinite; }
+
+/* ---- OBJECT BUTTONS (artist) ---- */
+.dm-wrap .dm-objects-label { font-family:'Cinzel',serif; font-size:0.62rem; letter-spacing:0.25em; text-transform:uppercase; color:var(--bone); opacity:0.45; }
+.dm-wrap .dm-objects { display:flex; flex-wrap:wrap; gap:0.4rem; }
+.dm-wrap .dm-obj-btn {
+  font-family:'Crimson Pro',serif; font-size:0.85rem; line-height:1.4;
+  padding:0.45rem 0.7rem; cursor:pointer;
+  border:1px solid rgba(var(--gold-rgb),0.2); background:rgba(0,0,0,0.3);
+  color:var(--parchment); transition:all 0.2s;
+}
+.dm-wrap .dm-obj-btn:hover:not(.placed):not(:disabled) { border-color:rgba(var(--gold-rgb),0.5); background:rgba(var(--gold-rgb),0.1); }
+.dm-wrap .dm-obj-btn.selected { border-color:var(--gold); background:rgba(var(--gold-rgb),0.18); box-shadow:0 0 12px rgba(var(--gold-rgb),0.25); }
+.dm-wrap .dm-obj-btn.placed { opacity:0.25; cursor:not-allowed; text-decoration:line-through; border-color:rgba(255,255,255,0.08); }
+
+/* ---- SLOT CHOOSER (artist) ---- */
+.dm-wrap .dm-slot-chooser { background:rgba(0,0,0,0.25); border:1px solid rgba(var(--gold-rgb),0.12); padding:0.6rem 0.8rem; }
+.dm-wrap .dm-slot-label { font-family:'Cinzel',serif; font-size:0.62rem; letter-spacing:0.25em; text-transform:uppercase; color:var(--gold); opacity:0.65; margin-bottom:0.5rem; }
+.dm-wrap .dm-slots { display:flex; flex-wrap:wrap; gap:0.4rem; }
+.dm-wrap .dm-slot-btn {
+  font-family:'Cinzel',serif; font-size:0.72rem; letter-spacing:0.12em;
+  padding:0.4rem 0.9rem; cursor:pointer;
+  border:1px solid rgba(var(--mist-rgb),0.35); background:rgba(var(--mist-rgb),0.06);
+  color:var(--mist-light); transition:all 0.2s;
+}
+.dm-wrap .dm-slot-btn:hover:not(.filled) { border-color:var(--mist); background:rgba(var(--mist-rgb),0.15); }
+.dm-wrap .dm-slot-btn.filled { opacity:0.2; cursor:not-allowed; border-color:rgba(255,255,255,0.08); }
+
+/* ---- SYMBOL CARDS (fantasy) ---- */
+.dm-wrap .dm-symbols-label { font-family:'Cinzel',serif; font-size:0.62rem; letter-spacing:0.25em; text-transform:uppercase; color:var(--bone); opacity:0.45; }
+.dm-wrap .dm-symbols { display:flex; flex-direction:column; gap:0.5rem; }
+.dm-wrap .dm-symbol-card {
+  background:rgba(0,0,0,0.3); border:1px solid rgba(var(--gold-rgb),0.15);
+  padding:0.6rem 0.8rem; transition:all 0.4s;
+}
+.dm-wrap .dm-symbol-card.filled { border-color:rgba(29,158,117,0.4); background:rgba(29,158,117,0.06); opacity:0.5; }
+.dm-wrap .dm-symbol-label { font-family:'Cinzel',serif; font-size:0.72rem; letter-spacing:0.15em; color:var(--gold-light); margin-bottom:0.3rem; }
+.dm-wrap .dm-symbol-desc { font-size:0.88rem; line-height:1.6; color:var(--parchment); opacity:0.85; }
+
+/* ---- FLASH LOG (fantasy, reusing lockdown pattern) ---- */
+.dm-wrap .flash-log { background:rgba(var(--mist-rgb),0.05); border:1px solid rgba(var(--mist-rgb),0.15); padding:0.75rem; min-height:60px; max-height:180px; overflow-y:auto; scrollbar-width:thin; scrollbar-color:rgba(var(--mist-rgb),0.2) transparent; }
+.dm-wrap .flash-log-label { font-family:'Cinzel',serif; font-size:0.62rem; letter-spacing:0.25em; text-transform:uppercase; color:var(--mist-light); opacity:0.7; margin-bottom:0.5rem; }
+.dm-wrap .flash-item { font-size:0.88rem; font-style:italic; color:var(--mist-light); line-height:1.5; padding:0.3rem 0; border-bottom:1px solid rgba(var(--mist-rgb),0.08); }
+.dm-wrap .flash-item:last-child { border-bottom:none; }
+.dm-wrap .flash-item-name { font-family:'Cinzel',serif; font-size:0.65rem; letter-spacing:0.15em; color:var(--mist); display:block; margin-bottom:0.15rem; }
+.dm-wrap .flash-empty { font-size:0.85rem; font-style:italic; color:rgba(255,255,255,0.2); text-align:center; padding:0.5rem; }
+
+/* ---- INTRO OVERLAY ---- */
+.dm-intro-overlay {
+  position:fixed; inset:0; z-index:9000;
+  background:rgba(0,0,0,0.95);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:1.8rem; padding:2rem;
+  transition:opacity 1.2s ease;
+}
+.dm-intro-overlay.fade-out { opacity:0; pointer-events:none; }
+.dm-intro-line {
+  font-family:'Cinzel',serif; font-size:clamp(1rem,3vw,1.4rem);
+  color:var(--parchment); opacity:0; letter-spacing:0.1em;
+  animation:dm-line-in 2s ease forwards;
+}
+@keyframes dm-line-in { from { opacity:0; transform:translateY(8px); } to { opacity:0.8; transform:translateY(0); } }
+
+/* ---- CONSOLE THEMES ---- */
+body.theme-fantasy .dm-wrap .dm-header { background:rgba(40,10,60,0.4); border-color:rgba(255,62,200,0.25); }
+body.theme-fantasy .dm-wrap .dm-title { font-family:'Orbitron',sans-serif; text-shadow:0 0 14px rgba(255,62,200,0.5); }
+body.theme-fantasy .dm-wrap .story-feed { background:rgba(13,3,24,0.4); border-color:rgba(255,62,200,0.12); }
+body.theme-fantasy .dm-wrap .dm-symbol-card { background:rgba(40,10,60,0.35); border-color:rgba(255,62,200,0.25); border-radius:6px; box-shadow:0 0 10px rgba(255,62,200,0.1); }
+body.theme-fantasy .dm-wrap .dm-symbol-label { font-family:'Orbitron',sans-serif; color:#ff7ddd; text-shadow:0 0 6px rgba(255,62,200,0.4); }
+body.theme-fantasy .dm-wrap .dm-symbol-desc { font-family:'Share Tech Mono',monospace; font-size:0.82rem; }
+body.theme-fantasy .dm-wrap .flash-log { background:rgba(40,10,60,0.35); border-color:rgba(255,62,200,0.3); border-radius:6px; box-shadow:0 0 14px rgba(255,62,200,0.15); }
+body.theme-fantasy .dm-wrap .flash-log-label { font-family:'Orbitron',sans-serif; color:#ff7ddd; text-shadow:0 0 8px rgba(255,62,200,0.5); }
+body.theme-fantasy .dm-wrap .flash-item-name { font-family:'Share Tech Mono',monospace; letter-spacing:0.08em; }
+
+body.theme-artist .dm-wrap .story-feed { background:#efe7d6; border:1px solid #d3c6a8; border-radius:12px; }
+body.theme-artist .dm-wrap .story-entry { background:rgba(255,255,255,0.45); border-radius:0 10px 10px 0; }
+body.theme-artist .dm-wrap .entry-body { color:#2a2419; font-family:-apple-system,'Segoe UI',Roboto,Helvetica,sans-serif; font-size:0.88rem; }
+body.theme-artist .dm-wrap .story-entry .entry-tag { color:#6f6552; opacity:0.8; }
+body.theme-artist .dm-wrap .story-entry.narrator { border-left-color:#6e93b8; }
+body.theme-artist .dm-wrap .story-entry.action { border-left-color:#b8ab8d; }
+body.theme-artist .dm-wrap .story-entry.flash { border-left-color:rgba(255,62,200,0.55); background:rgba(255,62,200,0.06); }
+body.theme-artist .dm-wrap .story-entry.flash .entry-body { color:#8e2a70; }
+body.theme-artist .dm-wrap .dm-header { background:#e3d8c0; border:1px solid #d3c6a8; border-radius:12px; }
+body.theme-artist .dm-wrap .dm-title { color:#3e5a78; }
+body.theme-artist .dm-wrap .dm-obj-btn { font-family:-apple-system,'Segoe UI',Roboto,Helvetica,sans-serif; background:#efe7d6; border:1px solid #d3c6a8; border-radius:14px; color:#2a2419; }
+body.theme-artist .dm-wrap .dm-obj-btn.selected { border-color:#3e7cb8; background:rgba(62,124,184,0.12); }
+body.theme-artist .dm-wrap .dm-slot-chooser { background:#efe7d6; border:1px solid #d3c6a8; border-radius:12px; }
+body.theme-artist .dm-wrap .dm-slot-btn { font-family:-apple-system,'Segoe UI',Roboto,Helvetica,sans-serif; background:#faf4e6; border:1px solid #d3c6a8; border-radius:14px; color:#2a2419; }
+
+/* ---- PHONES ---- */
+@media (max-width: 700px) {
+  .dm-wrap { padding: 0.6rem; }
+  .dm-wrap .story-feed { min-height: 30vh; max-height: 50vh; }
+  .dm-wrap .flash-log { max-height: 34vh; }
+  .dm-wrap .dm-obj-btn, .dm-wrap .dm-slot-btn { min-height: 44px; display:flex; align-items:center; }
+  .dm-wrap .dm-symbol-card { padding: 0.5rem 0.6rem; }
+}
+
+
+/* ============================================================
    10. THE 15 QUESTIONS  (Phase 6)
 
    Scoped under .q-wrap. Same reason as section 9: this scene defines .entry
