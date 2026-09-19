@@ -418,7 +418,7 @@ Maridizzle's call, 2026-09-19. This supersedes "static browser app, no backend f
 
 **What does not get simpler, so nobody expects it to.** The back button's DOM work and its both-sides handshake. Mid-scene restore. Storage does not teach a scene how to re-render itself.
 
-**Shape.** A Node server in this repo (`server/`), deployed as a second Railway service in the same project as the mindmap, sharing its Postgres. Pattern copied from `Maridizzle/saintalia/server.js`: Express, `pg`, HTTP Basic Auth on everything, secrets in env only. The server serves `game/` as static. Pages keeps serving the current static build until Maridizzle retires it.
+**Shape.** A Node server in this repo (`server/`), deployed as its own Railway service with **its own Postgres, fully separate from the mindmap's** (Maridizzle's call, 2026-09-19: a bad day on one can never reach the other). Pattern copied from `Maridizzle/saintalia/server.js`: Express, `pg`, HTTP Basic Auth on everything, secrets in env only. Postgres is not needed until 11b; the relay in 11a keeps rooms in memory. The server serves `game/` as static. Pages keeps serving the current static build until Maridizzle retires it.
 
 **Ground rules for the whole phase.**
 
@@ -444,9 +444,15 @@ Client, `connection.js` only:
 - Relay equivalents of `initPeer`, `initPeerWithCode`, `joinRoom`, `setupConnection`. `S.conn.send(obj)` becomes a JSON send on the socket. Incoming messages feed `dispatchMessage` unchanged.
 - Auto-reconnect with backoff on socket close. The existing status area shows "the veil flickers" while it retries.
 - Room codes stay VEIL_WORDS_A plus VEIL_WORDS_B.
+- Socket auth: a browser's WebSocket cannot set headers, so the socket is not gated by Basic Auth directly. The page, already behind the password, fetches a single-use two-minute token from `/api/ws-token` and opens `/ws?token=...`. Server side that is a Map in memory. Settled in step 1.
+
+Step 1, the echo socket, deploys before any relay code: `package.json` at the repo root, `server/index.js` with auth, static `game/`, `/api/health`, `/api/ws-token`, and a `/ws` that echoes. Verified locally 2026-09-19: 401 without the password, 401 on a socket with no token, echo works, a reused token is refused, loadtest passes.
 
 Gate 11a, two devices on two networks, one of them a phone on cellular:
 
+0. Step 1 on the live domain. Open the site, enter the password, and in the browser console run:
+   `fetch('/api/ws-token').then(r=>r.json()).then(({token})=>{const ws=new WebSocket('wss://'+location.host+'/ws?token='+token);ws.onopen=()=>ws.send('ping');ws.onmessage=e=>console.log('got:',e.data);ws.onerror=()=>console.log('socket failed');});`
+   Expected: `got: {"type":"hello","echo":true}` then `got: ping`. Anything else and the relay does not get built until it is understood.
 1. Create, join, character creation, Opening turn one on both sides.
 2. Kill the phone's browser mid-Lockdown. Reopen. Same room code. It reconnects and both sides continue.
 3. `TRANSPORT = 'peer'` still works end to end, proving nothing above the transport changed.
