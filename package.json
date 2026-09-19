@@ -7,7 +7,9 @@
   "main": "server/index.js",
   "scripts": {
     "start": "node server/index.js",
-    "test": "node game/test/loadtest.js"
+    "test": "node game/test/loadtest.js && node server/test/relaytest.js",
+    "test:client": "node game/test/loadtest.js",
+    "test:server": "node server/test/relaytest.js"
   },
   "engines": {
     "node": ">=18"

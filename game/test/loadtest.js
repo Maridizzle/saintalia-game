@@ -109,6 +109,51 @@ console.log('\nMESSAGE ROUTING');
 const handlers = run('Object.keys(MESSAGE_HANDLERS).sort()');
 check('handlers registered', handlers.length + ': ' + handlers.join(', '));
 
+// ---- RELAY CLIENT (PHASE 11a) ----
+// No network. A fake socket stands in for the server, and the client's own
+// relay-message handling is driven directly. What this proves: host identity
+// is latched from the server's welcome, the handshake goes out the moment
+// the pair is complete, sends go through the socket once joined, sends made
+// before the join wait in the outbox and flush on welcome, and a refusal
+// tears the session down.
+console.log('\nRELAY CLIENT');
+run(`
+  var fakeWs = { readyState: 1, sent: [], send(raw) { this.sent.push(JSON.parse(raw)); }, close() {} };
+  S.role = 'reality'; S.peer = null; S.transportUsed = null;
+  S.relay = { code:'test-code', mode:'join', seat:null, ws:fakeWs, joined:false, outbox:[], attempts:0, closing:false, timer:null };
+  S.conn = relayMakeConn();
+  S.conn.send({ type:'early', n:1 });
+`);
+check('send before join is queued', run('S.relay.outbox.length'), 1);
+run(`relayHandleMessage({ type:'relay-welcome', room:'test-code', seat:'abcdef0123456789', isHost:false, peerPresent:true, reconnect:false });`);
+check('isHost latched from server', run('S.isHost'), false);
+check('conn open once paired', run('S.conn.open'), true);
+check('queued send flushed', run("fakeWs.sent.some(m => m.type === 'early')"), true);
+check('handshake sent on pair', run("fakeWs.sent.some(m => m.type === 'handshake' && m.role === 'reality')"), true);
+run("S.conn.send({ type:'note', text:'x' })");
+check('send goes through socket', run("fakeWs.sent[fakeWs.sent.length - 1].type"), 'note');
+run("relayHandleMessage({ type:'relay-welcome', room:'test-code', seat:'ffff', isHost:true, peerPresent:false, reconnect:false })");
+check('host welcome latches host', run('S.isHost'), true);
+// A joiner refused before any welcome has S.isHost at its default of true.
+// The refusal must still land in the JOIN panel, not the hidden create one.
+run(`
+  S.isHost = true;
+  var statusHits = { create: 0, join: 0 };
+  var realGet = document.getElementById;
+  document.getElementById = function(id) {
+    var e = realGet(id);
+    if (id === 'create-status-area') Object.defineProperty(e, 'innerHTML', { set(v) { statusHits.create++; } });
+    if (id === 'join-status-area')   Object.defineProperty(e, 'innerHTML', { set(v) { statusHits.join++; } });
+    return e;
+  };
+  relayHandleMessage({ type:'relay-refused', reason:'no-room' });
+  document.getElementById = realGet;
+`);
+check('refusal tears down', run('S.relay === null && S.conn === null'), true);
+check('joiner refusal hits join panel', run('statusHits.join + "/" + statusHits.create'), '1/0');
+check('peer path still present', run("typeof peerInitWithCode === 'function' && typeof peerJoin === 'function'"), true);
+run("S.conn = null; S.relay = null;");
+
 // ---- THE LOCKDOWN ----
 if (registered.includes('lockdown')) {
   console.log('\nTHE LOCKDOWN');
