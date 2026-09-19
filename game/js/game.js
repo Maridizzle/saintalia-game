@@ -75,7 +75,10 @@ const MURAL_LAYERS = [
 // still lives in this file; js/scenes/opening.js is a thin adapter over it.
 function launchActualGame() {
   if (typeof relayRemember === 'function') relayRemember({ phase: 'game' });   // PHASE 11a step 3
-  document.body.innerHTML = '';
+
+  // PHASE 11d. Hide the char screen instead of destroying it.
+  var charRoot = document.getElementById('screen-char-root');
+  if (charRoot) charRoot.style.display = 'none';
 
   // The run, in play order. The Dream slots in between skytears and
   // questions when Phase 7 builds it. See PLAN.md "Current priority".
@@ -103,6 +106,9 @@ function buildGameScreen(root) {
   setScreen('game');
 
   (root || document.body).innerHTML = `
+  <!-- PHASE 11d. Back button, Opening only. Hidden once the scene advances. -->
+  <button class="btn-secondary back-to-char" id="backToChar" onclick="requestCharReopen()" style="position:fixed;top:0.4rem;left:0.4rem;z-index:9997;font-size:0.7rem;padding:0.35rem 0.7rem;opacity:0.5;">← Back to character creation</button>
+
   <!-- GAME HEADER -->
   <div class="g-header">
     <div class="g-logo">Saintalia</div>
@@ -626,6 +632,11 @@ onMessage('energy-update', forScene('opening', (data) => {
   updateEnergyDisplay();
 }));
 
+// PHASE 11d. The other player pressed Back to character creation.
+onMessage('char-reopen', () => {
+  returnToCharacter();
+});
+
 async function submitCustom(side) {
   const inputId = side === 'fantasy' ? 'fantasyCustom' : 'realityCustom';
   const input = document.getElementById(inputId);
@@ -807,6 +818,66 @@ const THINKING_TEXT = {
 function revealOpeningExit() {
   const b = document.getElementById('openingExit');
   if (b) b.style.display = 'block';
+  // Once the opening exit is showing, the back button goes away. The player
+  // has already committed to the story.
+  const back = document.getElementById('backToChar');
+  if (back) back.style.display = 'none';
+}
+
+// PHASE 11d. Both sides return to character creation. Sends char-reopen to
+// the other player; both sides re-enter the char screen, re-finalize, and
+// checkBothReady fires again. G resets.
+function requestCharReopen() {
+  if (S.conn && S.conn.open) {
+    S.conn.send({ type: 'char-reopen' });
+  }
+  returnToCharacter();
+}
+
+function returnToCharacter() {
+  // Reset game state
+  G.turn = 1;
+  G.veilStrength = 5;
+  G.muralLayer = 0;
+  G.energy = 100;
+  G.notes = [];
+  G.fantasyHistory = [];
+  G.realityHistory = [];
+  G.waitingForNarrator = false;
+  G.openingDone = false;
+  G.fantasyChoices = [];
+  G.realityChoices = [];
+  G.pendingChoices = { fantasy: null, reality: null };
+
+  // Clear characters so both sides have to re-finalize
+  S.myCharacter = null;
+  S.otherCharacter = null;
+
+  // Tear down the current scene
+  if (CURRENT_SCENE && typeof CURRENT_SCENE.unmount === 'function') {
+    try { CURRENT_SCENE.unmount(); } catch (e) { /* best effort */ }
+  }
+  CURRENT_SCENE = null;
+
+  // Remove the scene root
+  var sceneRoot = document.getElementById('scene-root');
+  if (sceneRoot && sceneRoot.parentNode) sceneRoot.parentNode.removeChild(sceneRoot);
+
+  // Remove save buttons if present
+  if (typeof removeSaveButton === 'function') removeSaveButton();
+
+  // Show the char screen
+  if (typeof relayRemember === 'function') relayRemember({ phase: 'char' });
+  setScreen('char');
+  var charRoot = document.getElementById('screen-char-root');
+  if (!charRoot) {
+    charRoot = document.createElement('div');
+    charRoot.id = 'screen-char-root';
+    document.body.appendChild(charRoot);
+  }
+  charRoot.style.display = '';
+  charRoot.innerHTML = buildCharScreen();
+  initCharScreen();
 }
 
 function setThinking(on, msg) {

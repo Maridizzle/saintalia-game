@@ -69,6 +69,7 @@ function buildCharScreen() {
         <input class="custom-field name-input" id="nameCustom" placeholder="Or write your own name..." maxlength="40" oninput="S.charSelections.name=this.value;clearGrid('nameGrid')" />
       </div>
       <div class="cc-nav">
+        <button class="btn-secondary" onclick="returnToLobby()" style="margin-right:auto">← Change Sides</button>
         <button class="btn-next" onclick="nextTab(0)" id="nn0">Next — Choose Your ${isF ? 'Blood' : 'Background'} →</button>
       </div>
     </div>
@@ -420,6 +421,19 @@ function initCharScreen() {
   S.charTab = 0;
   S.charSelections = { name:'', race:null, job:null, stats:{}, appearance:{}, personality:{}, statPoints:12, statBonuses:{} };
   initStatPips();
+}
+
+// PHASE 11d. Return to the lobby from character tab 0. Local only: nothing
+// has been sent to the other player at this point, so no message is needed.
+function returnToLobby() {
+  var charRoot = document.getElementById('screen-char-root');
+  if (charRoot) { charRoot.style.display = 'none'; charRoot.innerHTML = ''; }
+  var lobby = document.getElementById('screen-lobby-root');
+  if (lobby) lobby.style.display = '';
+  setScreen('lobby');
+  S.myCharacter = null;
+  S.charSelections = null;
+  S.charTab = 0;
 }
 
 // PHASE 1 STEP 4. This registration used to live inside initCharScreen as a
