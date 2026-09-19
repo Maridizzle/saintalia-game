@@ -2,15 +2,19 @@
 // SAINTALIA -- game server
 // Author: Maridizzle
 //
-// Phase 11a. Serves the game behind one shared password and relays messages
-// between the two players of a room over a WebSocket. The server does not
-// parse game messages; it forwards them verbatim. Step 1 was an echo on the
-// same socket, deployed first to prove the socket survives Railway's proxy.
-// It did, on 2026-09-19.
+// Phase 11a + 11b. Serves the game behind one shared password and relays
+// messages between the two players of a room over a WebSocket. The server
+// does not parse game messages; it forwards them verbatim. Step 1 was an
+// echo on the same socket, deployed first to prove the socket survives
+// Railway's proxy. It did, on 2026-09-19.
+//
+// Phase 11b part 2 adds Postgres persistence: named save slots so a game
+// survives a server restart and players can come back days later. Each
+// role gets a random save token at room creation; rows are gated on it.
 //
 // Patterns copied from Maridizzle/saintalia/server.js: Express, HTTP Basic
-// Auth on everything, secrets only in env. No database in 11a; rooms live in
-// memory and are dropped after thirty idle minutes.
+// Auth on everything, secrets only in env. Rooms live in memory and are
+// dropped after thirty idle minutes; saves live in Postgres.
 //
 // WHY THE SOCKET USES A TOKEN AND NOT BASIC AUTH DIRECTLY
 // A browser's WebSocket API cannot set an Authorization header, and whether
@@ -46,7 +50,36 @@ const path = require('path');
 const crypto = require('crypto');
 const { WebSocketServer } = require('ws');
 
+const { Pool } = require('pg');
+
 const PORT = process.env.PORT || 3000;
+
+// ---- DATABASE (PHASE 11b part 2) --------------------------
+// If DATABASE_URL is set, connect to Postgres and create the tables on boot.
+// If not, everything runs fine; saves just do not persist past a restart.
+let db = null;
+
+if (process.env.DATABASE_URL) {
+  db = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false }, max: 5 });
+  db.query(`
+    CREATE TABLE IF NOT EXISTS saintalia_game (
+      room       TEXT NOT NULL,
+      role       TEXT NOT NULL,
+      slot       TEXT NOT NULL,
+      shared     JSONB NOT NULL DEFAULT '{}',
+      private    JSONB NOT NULL DEFAULT '{}',
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      PRIMARY KEY (room, role, slot)
+    );
+    CREATE TABLE IF NOT EXISTS saintalia_tokens (
+      room  TEXT NOT NULL,
+      role  TEXT NOT NULL,
+      token TEXT NOT NULL,
+      PRIMARY KEY (room, role)
+    );
+  `).then(() => console.log('database tables ready'))
+    .catch(e => { console.error('database init failed:', e.message); db = null; });
+}
 
 // ---- AUTH -------------------------------------------------
 // One shared password gates everything: the static game, the API, and the
@@ -152,7 +185,7 @@ function handleRelayJoin(ws, msg) {
   // of randomness behind the password gate; nobody guesses one.
   if (seatOk(wantedSeat) && (!room || room.seats.size < 2)) {
     if (!room) {
-      room = { seats: new Map(), hostSeat: null, touched: Date.now() };
+      room = { seats: new Map(), hostSeat: null, touched: Date.now(), saveTokens: {} };
       rooms.set(code, room);
     }
     room.seats.set(wantedSeat, { ws: null, pending: [] });
@@ -164,11 +197,20 @@ function handleRelayJoin(ws, msg) {
     // Two hosts picked the same word pair. The client mints another code,
     // the same way it did on PeerJS's unavailable-id.
     if (room) return sendJson(ws, { type: 'relay-refused', reason: 'room-taken' });
-    room = { seats: new Map(), hostSeat: null, touched: Date.now() };
+    room = { seats: new Map(), hostSeat: null, touched: Date.now(), saveTokens: {} };
     rooms.set(code, room);
     const seatId = newSeatId();
     room.hostSeat = seatId;
     room.seats.set(seatId, { ws: null, pending: [] });
+    // PHASE 11b. Generate save tokens for both roles. Stored in memory and
+    // in Postgres (if available) so they survive a server restart.
+    room.saveTokens.reality = crypto.randomBytes(16).toString('hex');
+    room.saveTokens.fantasy = crypto.randomBytes(16).toString('hex');
+    if (db) {
+      db.query('INSERT INTO saintalia_tokens (room, role, token) VALUES ($1, $2, $3), ($4, $5, $6) ON CONFLICT (room, role) DO UPDATE SET token = EXCLUDED.token',
+        [code, 'reality', room.saveTokens.reality, code, 'fantasy', room.saveTokens.fantasy])
+        .catch(e => console.error('token persist failed:', e.message));
+    }
     return seatSocket(ws, room, code, seatId, false);
   }
 
@@ -268,8 +310,104 @@ setInterval(() => {
 const app = express();
 app.use(requireAuth);
 
-app.get('/api/health', (req, res) => res.json({ ok: true, step: '11a-2 relay', rooms: rooms.size }));
+app.use(express.json());
+
+app.get('/api/health', (req, res) => res.json({ ok: true, step: '11b-2 saves', rooms: rooms.size }));
 app.get('/api/ws-token', (req, res) => res.json({ token: issueSocketToken() }));
+
+// PHASE 11b part 2. Save token retrieval. The client asks after it knows its
+// room and role. Returns the token for that role only.
+app.get('/api/save-token', async (req, res) => {
+  const room = String(req.query.room || '').toLowerCase();
+  const role = String(req.query.role || '').toLowerCase();
+  if (!roomCodeOk(room) || (role !== 'reality' && role !== 'fantasy')) {
+    return res.status(400).json({ error: 'bad-request' });
+  }
+  // Try memory first
+  const r = rooms.get(room);
+  if (r && r.saveTokens && r.saveTokens[role]) {
+    return res.json({ token: r.saveTokens[role] });
+  }
+  // Try database
+  if (db) {
+    try {
+      const result = await db.query('SELECT token FROM saintalia_tokens WHERE room = $1 AND role = $2', [room, role]);
+      if (result.rows.length) return res.json({ token: result.rows[0].token });
+    } catch (e) { console.error('token lookup failed:', e.message); }
+  }
+  return res.status(404).json({ error: 'no-token' });
+});
+
+// PHASE 11b part 2. Save and load game state.
+app.post('/api/save', async (req, res) => {
+  if (!db) return res.status(503).json({ error: 'no-database' });
+  const token = req.headers['x-save-token'] || '';
+  const { room, role, slot, shared, private: priv } = req.body || {};
+  if (!room || !role || !slot || !shared) {
+    return res.status(400).json({ error: 'bad-request' });
+  }
+  const roomLower = String(room).toLowerCase();
+  const roleLower = String(role).toLowerCase();
+  if (!roomCodeOk(roomLower) || (roleLower !== 'reality' && roleLower !== 'fantasy')) {
+    return res.status(400).json({ error: 'bad-request' });
+  }
+  // Validate the save token
+  const valid = await validateSaveToken(roomLower, roleLower, token);
+  if (!valid) return res.status(403).json({ error: 'forbidden' });
+  try {
+    await db.query(
+      `INSERT INTO saintalia_game (room, role, slot, shared, private, updated_at)
+       VALUES ($1, $2, $3, $4, $5, now())
+       ON CONFLICT (room, role, slot) DO UPDATE
+       SET shared = $4, private = $5, updated_at = now()`,
+      [roomLower, roleLower, String(slot), JSON.stringify(shared), JSON.stringify(priv || {})]
+    );
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error('save failed:', e.message);
+    return res.status(500).json({ error: 'save-failed' });
+  }
+});
+
+app.get('/api/save', async (req, res) => {
+  if (!db) return res.status(503).json({ error: 'no-database' });
+  const token = req.headers['x-save-token'] || '';
+  const room = String(req.query.room || '').toLowerCase();
+  const role = String(req.query.role || '').toLowerCase();
+  if (!roomCodeOk(room) || (role !== 'reality' && role !== 'fantasy')) {
+    return res.status(400).json({ error: 'bad-request' });
+  }
+  const valid = await validateSaveToken(room, role, token);
+  if (!valid) return res.status(403).json({ error: 'forbidden' });
+  try {
+    const result = await db.query(
+      'SELECT slot, shared, private, updated_at FROM saintalia_game WHERE room = $1 AND role = $2 ORDER BY updated_at DESC',
+      [room, role]
+    );
+    return res.json({ saves: result.rows });
+  } catch (e) {
+    console.error('load failed:', e.message);
+    return res.status(500).json({ error: 'load-failed' });
+  }
+});
+
+async function validateSaveToken(room, role, token) {
+  if (!token) return false;
+  // Check memory
+  const r = rooms.get(room);
+  if (r && r.saveTokens && r.saveTokens[role]) {
+    return crypto.timingSafeEqual(Buffer.from(r.saveTokens[role]), Buffer.from(token));
+  }
+  // Check database
+  if (!db) return false;
+  try {
+    const result = await db.query('SELECT token FROM saintalia_tokens WHERE room = $1 AND role = $2', [room, role]);
+    if (!result.rows.length) return false;
+    const stored = Buffer.from(result.rows[0].token);
+    const given = Buffer.from(token);
+    return stored.length === given.length && crypto.timingSafeEqual(stored, given);
+  } catch (e) { return false; }
+}
 
 app.use(express.static(path.join(__dirname, '..', 'game')));
 

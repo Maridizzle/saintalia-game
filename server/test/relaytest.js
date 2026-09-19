@@ -173,6 +173,18 @@ async function main() {
   check('garbage seat not honored', (await G3.next('relay-refused')).reason, 'room-full');
   G1.close(); G2.close(); G3.close();
 
+  // ---- save tokens (Phase 11b part 2) ----
+  console.log('\nSAVE TOKENS');
+  const tokR = await (await fetch(BASE + '/api/save-token?room=test-room&role=reality', { headers: { Authorization: AUTH } })).json();
+  check('reality token issued', typeof tokR.token === 'string' && tokR.token.length === 32, true);
+  const tokF = await (await fetch(BASE + '/api/save-token?room=test-room&role=fantasy', { headers: { Authorization: AUTH } })).json();
+  check('fantasy token issued', typeof tokF.token === 'string' && tokF.token.length === 32, true);
+  check('tokens are different', tokR.token !== tokF.token, true);
+  const tokBad = await fetch(BASE + '/api/save-token?room=test-room&role=badguy', { headers: { Authorization: AUTH } });
+  check('bad role rejected', tokBad.status, 400);
+  const tokNone = await fetch(BASE + '/api/save-token?room=no-such-room&role=reality', { headers: { Authorization: AUTH } });
+  check('unknown room 404', tokNone.status, 404);
+
   // ---- health reports the rooms ----
   const h = await (await fetch(BASE + '/api/health', { headers: { Authorization: AUTH } })).json();
   check('health counts rooms', h.rooms, 2);

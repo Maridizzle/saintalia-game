@@ -833,7 +833,10 @@ onMessage('handshake', () => {
     setJoinStatus('The veil holds. You are through.', 'connected');
   }
 
-  setTimeout(() => goToStep('step-ready'), 1200);
+  setTimeout(() => {
+    goToStep('step-ready');
+    if (typeof showResumeSaves === 'function') showResumeSaves();
+  }, 1200);
 });
 
 onMessage('begin', (data) => {
@@ -841,6 +844,22 @@ onMessage('begin', (data) => {
   // PHASE 3a: this payload no longer carries a Groq key. See beginGame.
   window.GAME_STATE = data.gameState;
   launchGame();
+});
+
+// PHASE 11b part 2. The host picked a save slot. The joiner loads its own
+// private half from the server and restores alongside the host.
+onMessage('resume', async (data) => {
+  if (!data.shared) return;
+  document.getElementById('debug').style.display = 'none';
+  if (typeof relayRemember === 'function') relayRemember({ phase: 'game' });
+  // Load this role's private half from the database
+  var saves = typeof loadSaves === 'function' ? await loadSaves() : [];
+  var mySave = saves.find(function(s) { return s.slot === data.slot; });
+  var priv = mySave ? mySave.private : {};
+  var snapshot = typeof rebuildSnapshot === 'function'
+    ? rebuildSnapshot(data.shared, priv)
+    : data.shared;
+  if (typeof sessionRestore === 'function') sessionRestore(snapshot, 'game');
 });
 
 // ---- STEP 3: GROQ KEY ----

@@ -101,6 +101,17 @@
 
     <button class="btn-primary" id="btn-begin-game" onclick="beginGame()">Begin the Story</button>
     <button class="btn-secondary" onclick="skipGroq()">Continue without AI narration</button>
+
+    <div class="resume-section" id="resume-section" style="display:none">
+      <div class="resume-divider"></div>
+      <p class="resume-label">Or resume a saved game</p>
+      <div class="resume-slots" id="resume-slots"></div>
+      <div class="resume-manual" id="resume-manual" style="display:none">
+        <input class="code-input" id="resume-token-input" placeholder="paste your save token..." />
+        <button class="btn-secondary" onclick="resumeWithToken()">Use Token</button>
+      </div>
+      <button class="btn-secondary resume-toggle" onclick="toggleResumeToken()">I have a save key from another session</button>
+    </div>
   </div>
 </div>
 
