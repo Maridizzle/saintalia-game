@@ -38,6 +38,22 @@ Verified by `node game/test/loadtest.js`, which mounts every scene in order as b
 
 **Added 2026-09-19, Maridizzle's call: Phase 11, migrate the game to Railway, deep.** The PeerJS layer and static hosting are the root of the connection instability and make a private two-sided save awkward. Phase 11 replaces the transport, adds server-side saves, moves narration server-side, and carries the back button. Its order relative to Phase 7 is not yet decided.
 
+### Where things stand, end of session 2026-09-19
+
+Read this first in the next session. It is the handoff.
+
+**Live.** The game runs on Railway at `saintalia-game-production.up.railway.app`, behind `APP_PASSWORD`, deploying from `main`. Merged and deployed: 11a step 1 (server and echo socket, PR #7), step 2 (the relay, PR #8), step 3 (reload rejoins the room, PR #9). GitHub Pages still serves `main` too; there the client falls back to PeerJS on its own.
+
+**Gate 11a so far, on two real devices:** item 0 passed (echo), item 1 passed (create, join, play), item 2 passed (airplane mode recovers). Item 2b (reload at Step III comes back on its own) is deployed and **not yet tested by Maridizzle**. Items 3 (redeploy mid-game) and 4 (Pages fallback on a phone) not yet run on devices; both pass in the local tests.
+
+**Next: 11b part 1**, the scene comes back after a reload. Maridizzle said go on 2026-09-19 and then paused to start a fresh conversation, since this is build work and the session was on a story-writing model. Nothing of part 1 is written. The agreed plan is under 11b below, "Part 1 plan." Start there: read `game/js/game.js`, `game/js/scenes/lockdown.js`, `game/js/scenes/questions.js`, and `game/js/character.js` in full, then build.
+
+**Verification that exists:** `npm test` runs `game/test/loadtest.js` (client, DOM stub, every scene mounts, relay client checks, session checks) and `server/test/relaytest.js` (real server, real sockets, 32 checks). A third test, the real lobby in two headless Chromium tabs with reloads, was written in the session's scratchpad and run green, but is not in the repo; it used Playwright from `/opt/node22/lib/node_modules/playwright` in the cloud container. Rewrite it in the next session if wanted, about 150 lines.
+
+**Maridizzle's own list, unchanged:** the three mindmap edits (org beat numbers, links on Encounter 1 and retitle the duplicate, hub text on the Tavern); the `questions.js` name swap (Sasha to The Artist, Tyvian to P2), awaiting a go; the story questions in `docs/story-map.md`, next up 3a and the Channel (4a, 4b, 4c); the swapped Lockdown flashes; the two bridge texts and the gate copy.
+
+**Standing rules still stand.** Nothing is committed, pushed, merged, or deployed without the words for that action. Nothing is deleted. `DEBUG` is still `true`.
+
 Two things that follow from this, both deliberate and both temporary:
 
 - The 15 Questions will interrogate both players about a veil The Dream was supposed to show them. That hole closes when Phase 7 happens.
@@ -478,6 +494,30 @@ Restructured 2026-09-19 after the reload finding. Two parts, and the database co
 **Part 1, in memory, no database.** Every scene gets `snapshot()` and `restore()`. The host sends a `relay-snapshot` of shared state to the server after each state change (turn resolved, object found, scene advanced); each client sends its own private half the same way. The server keeps only the latest per room and seat, in memory, and hands it back in the welcome when a seat rejoins. A reload then rejoins, rebuilds the screen, mounts the scene, and restores it, without disturbing the other player. This is what makes a mid-game reload survivable.
 
 **Part 2, Postgres.** The same snapshots written through to the game's own database, plus named save slots and the resume panel below. This adds surviving a server restart with rooms gone and coming back days later. Everything below describes part 2 as originally planned.
+
+**Part 1 plan, agreed 2026-09-19, not started.**
+
+Each page keeps a snapshot of its own view: phase, role, both characters, `S.charSelections`, `G` (turn, veil, energy, mural, notes, both histories, pending choices), the scene order, the current scene, that scene's own state (`LK`, `Q`), and the engine's `ADVANCE_READY`. The page sends it as `relay-snapshot` after every message in or out and every scene mount, debounced to one send per burst. The server keeps only the latest per seat, in memory, capped at 256 KB, and hands it back in the welcome on a reconnect. Nobody's view ever reaches the other seat, so there is no shared/private split in part 1.
+
+Restore, per scene:
+
+| Scene | State | Restore |
+|---|---|---|
+| Character creation | `S.charSelections`, or a finalized `S.myCharacter` | rebuild the screen; re-apply picks through the same pick functions; if already finalized, land on the waiting state |
+| Opening | `G` | mount with a flag so `beginOpeningScene` does not fire; re-render both feeds from the histories, current choices, veil, energy, mural, notes. If the host reloaded mid-Groq with both choices in, resolve the turn again |
+| Lockdown | `LK` plus a new `LK.log` of what the feed showed | re-render room, pills, grid marker, found objects; replay the log and the notes |
+| 15 Questions | `Q` plus a `Q.log` | re-render the current step for the current asker; an answer in flight is re-chosen |
+| Bridges, coming-soon | advance flags | remount, restore the continue button's state |
+
+Two things it has to get right:
+- The server flushes a seat's backlog right after the welcome, before the scene is back on screen, and the engine drops scene messages for a scene that is not mounted. The client holds incoming game messages while restoring and replays them once the scene is up.
+- The Opening's mount fires narration after 600 ms. Restore mounts with a flag so it does not.
+
+Engine and files: `registerScene` gains optional `snapshot()` and `restore(data)`; `mountScene(id, opts)` passes a restore payload; the existing `exportState()` on the Opening and bridges folds in. New `game/js/session.js` (collect, restore, debounce) added to the load order after `js/game.js`; the loadtest follows the order automatically. Server: `relay-snapshot` stored per seat, returned in the welcome, never forwarded.
+
+Tests: loadtest snapshot and restore round trip per scene; relay test stores and returns a snapshot on reconnect and never to the other seat; a two-tab browser run that plays through character creation into the Opening, reloads one tab mid-scene, and checks feed, turn, and choices are back with the partner undisturbed.
+
+Size: large. Four full file reads (about 2,200 lines), then roughly 400 new lines across engine, scenes, server, tests.
 
 Server:
 
