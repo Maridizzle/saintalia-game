@@ -480,6 +480,81 @@ function clearLinkLost() {
 const RELAY_OUTBOX_CAP = 100;
 const RELAY_RETRY_MAX_MS = 15000;
 
+// PHASE 11a step 3. A page reload used to be the end: the seat lived in the
+// page's memory, the room already held two, and you could not get back in.
+// The seat now also lives in sessionStorage, which survives a reload and
+// dies with the tab. On load, if a session is there, the client rejoins on
+// its own. `phase` records how far the page had got (lobby, char, game) so
+// the saves work in 11b knows what to put back. A session older than two
+// hours is ignored; the room is long gone by then.
+const RELAY_SESSION_KEY = 'saintalia-session';
+const RELAY_SESSION_MAX_AGE_MS = 2 * 60 * 60 * 1000;
+
+function relayReadSession() {
+  try {
+    if (typeof sessionStorage === 'undefined') return null;
+    const raw = sessionStorage.getItem(RELAY_SESSION_KEY);
+    if (!raw) return null;
+    const s = JSON.parse(raw);
+    return s && s.v === 1 && s.room && s.seat && s.role ? s : null;
+  } catch (e) { return null; }
+}
+
+// Merges a patch into the stored session. No relay session live, no write.
+function relayRemember(patch) {
+  if (!S.relay) return;
+  try {
+    if (typeof sessionStorage === 'undefined') return;
+    const cur = relayReadSession() || {};
+    const next = Object.assign({ v: 1, phase: 'lobby' }, cur, patch, { t: Date.now() });
+    sessionStorage.setItem(RELAY_SESSION_KEY, JSON.stringify(next));
+  } catch (e) { /* storage blocked; the reload just will not resume */ }
+}
+
+function relayForgetSession() {
+  try { if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem(RELAY_SESSION_KEY); } catch (e) { /* nothing to forget */ }
+}
+
+// Called once at load. Puts the lobby back the way it was and rejoins.
+function relayResumeFromStorage() {
+  const s = relayReadSession();
+  if (!s || !useRelay()) return;
+  if (Date.now() - (s.t || 0) > RELAY_SESSION_MAX_AGE_MS) { relayForgetSession(); return; }
+
+  dbg('state', 'resuming ' + s.room + ' after reload');
+  selectRole(s.role);
+  S.isHost = !!s.isHost;
+
+  // relayStart first, so goToStep sees S.relay and does not mint a new code.
+  relayStart(s.room, s.mode, s.seat);
+  S.relay.resumedPhase = s.phase || 'lobby';
+  goToStep('step-connect');
+  switchAction(s.mode === 'host' ? 'create' : 'join');
+
+  if (s.mode === 'join') {
+    const input = document.getElementById('join-code-input');
+    if (input) input.value = s.room;
+    const btn = document.getElementById('btn-join');
+    if (btn) btn.disabled = true;
+    setJoinStatus('Reaching back through the veil...', 'waiting');
+  } else {
+    setCreateStatus('Reaching back through the veil...', 'waiting');
+  }
+}
+
+// After a reload mid-game the connection is back but the scene is not. Say
+// so plainly until 11b restores it.
+function relayAfterResume() {
+  const R = S.relay;
+  if (!R || !R.resumedPhase) return;
+  const phase = R.resumedPhase;
+  R.resumedPhase = null;
+  dbg('state', 'rejoined after reload (was in ' + phase + ')');
+  if (phase !== 'lobby') {
+    setLinkLost('Reconnected to the veil, but the scene was lost with the page. Rejoining a game in progress is not built yet.', 'waiting');
+  }
+}
+
 function relayMakeConn() {
   return {
     open: false,
@@ -508,10 +583,11 @@ async function relayToken() {
   return (await r.json()).token;
 }
 
-// Entry point for both sides. mode is 'host' or 'join'.
-function relayStart(code, mode) {
+// Entry point for both sides. mode is 'host' or 'join'. seat is only given
+// when resuming after a reload; otherwise the server issues one.
+function relayStart(code, mode, seat) {
   relayClose();
-  S.relay = { code, mode, seat: null, ws: null, joined: false, outbox: [], attempts: 0, closing: false, timer: null };
+  S.relay = { code, mode, seat: seat || null, ws: null, joined: false, outbox: [], attempts: 0, closing: false, timer: null, resumedPhase: null };
   S.conn = relayMakeConn();
   S.roomCode = code;
   if (mode === 'host') setCreateStatus('Binding your code to the veil...', 'waiting');
@@ -590,13 +666,31 @@ function relayHandleMessage(msg) {
       const backlog = R.outbox.splice(0);
       if (R.ws) backlog.forEach(raw => R.ws.send(raw));
 
-      if (msg.reconnect) { relayOnRestored(); return; }
-
+      // The host's code goes back on screen whether this is a first welcome
+      // or a reload; the lobby DOM may or may not still exist.
       if (S.isHost) {
         const display = document.getElementById('room-code-display');
         const box = document.getElementById('code-display');
         if (display) display.textContent = R.code;
         if (box) box.style.display = 'block';
+      }
+
+      if (msg.reconnect) {
+        // Same page after a blip, or a fresh page after a reload. Either
+        // way the seat is ours again. A fresh page has no open conn yet, so
+        // if the partner is there, complete the pair now.
+        relayRemember({ room: R.code, mode: R.mode, seat: R.seat, role: S.role, isHost: S.isHost });
+        relayOnRestored();
+        if (msg.peerPresent && !S.conn.open) relayPairComplete();
+        relayAfterResume();
+        return;
+      }
+
+      // A new seat means a new game: the phase starts over at the lobby,
+      // whatever an older session in this tab said.
+      relayRemember({ room: R.code, mode: R.mode, seat: R.seat, role: S.role, isHost: S.isHost, phase: 'lobby' });
+
+      if (S.isHost) {
         setCreateStatus('The veil is open. Waiting for the other side...', 'waiting');
         dbg('state', 'open with code, waiting for joiner');
       }
@@ -612,7 +706,19 @@ function relayHandleMessage(msg) {
       return;
     case 'relay-peer-reconnected':
       dbg('conn', 'peer back');
-      clearLinkLost();
+      if (S.conn && !S.conn.open) {
+        // This page reloaded while its partner was away; the partner's
+        // return completes the pair.
+        relayPairComplete();
+      } else {
+        clearLinkLost();
+        // The partner may be a fresh page after a reload. Its lobby advances
+        // on our handshake, so send it again while we are still in the
+        // lobby ourselves. In-game there is no lobby to advance.
+        if (S.conn && document.getElementById('step-ready')) {
+          S.conn.send({ type: 'handshake', role: S.role, msg: 'The veil holds.' });
+        }
+      }
       return;
     case 'relay-refused':
       relayRefused(msg.reason);
@@ -651,6 +757,7 @@ function relayRefused(reason) {
       ? 'That code already has two players on it.'
       : 'The veil refused: ' + reason;
   const asHost = !!(R && R.mode === 'host');
+  relayForgetSession();   // nothing to resume into
   relayClose();
   const btn = document.getElementById('btn-join');
   if (btn) btn.disabled = false;
@@ -663,9 +770,12 @@ function relayOnDrop() {
 }
 
 function relayOnRestored() {
-  dbg('state', S.connected ? 'connected' : 'open with code, waiting for joiner');
+  dbg('state', S.connected ? 'connected' : 'open with code, waiting for the other side');
   clearLinkLost();
-  if (!S.connected && S.isHost) setCreateStatus('The veil is open. Waiting for the other side...', 'waiting');
+  if (!S.connected) {
+    if (S.isHost) setCreateStatus('The veil is open. Waiting for the other side...', 'waiting');
+    else setJoinStatus('The veil holds. Waiting for the other side...', 'waiting');
+  }
 }
 
 // Auto mode found no relay on the first try. Use PeerJS for this session.
@@ -753,6 +863,7 @@ function sendBegin() {
 }
 
 function launchGame() {
+  relayRemember({ phase: 'char' });   // PHASE 11a step 3: what a reload should come back to
   document.getElementById('debug').style.display = 'none';
   setScreen('char');
   document.body.innerHTML = buildCharScreen();
@@ -808,3 +919,7 @@ if (!DEBUG) {
   const panel = document.getElementById('debug');
   if (panel) panel.style.display = 'none';
 }
+
+// PHASE 11a step 3. If this tab was in a room before a reload, go back in.
+// This script sits at the end of <body>, so the lobby DOM exists by now.
+relayResumeFromStorage();

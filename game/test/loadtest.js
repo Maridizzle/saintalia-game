@@ -154,6 +154,28 @@ check('joiner refusal hits join panel', run('statusHits.join + "/" + statusHits.
 check('peer path still present', run("typeof peerInitWithCode === 'function' && typeof peerJoin === 'function'"), true);
 run("S.conn = null; S.relay = null;");
 
+// Step 3: the session survives a reload. A fake sessionStorage stands in;
+// the sandbox has none, and the code must also cope with that.
+run(`
+  var store = {};
+  globalThis.sessionStorage = { getItem(k){ return k in store ? store[k] : null; }, setItem(k,v){ store[k] = String(v); }, removeItem(k){ delete store[k]; } };
+  S.role = 'fantasy'; S.isHost = true;
+  S.relay = { code:'ashveil-seven', mode:'host', seat:'0123456789abcdef01234567', ws:null, joined:true, outbox:[], attempts:0, closing:false, timer:null, resumedPhase:null };
+  relayRemember({ room:'ashveil-seven', mode:'host', seat:'0123456789abcdef01234567', role:'fantasy', isHost:true, phase:'lobby' });
+  relayRemember({ phase:'game' });
+  S.relay = null; S.conn = null; S.role = null; S.isHost = true;
+`);
+check('session written', run("(relayReadSession() || {}).phase"), 'game');
+run('relayResumeFromStorage()');
+check('resume restores role', run('S.role'), 'fantasy');
+check('resume reuses the seat', run('S.relay && S.relay.seat'), '0123456789abcdef01234567');
+check('resume keeps host flag', run('S.isHost'), true);
+check('resume remembers the phase', run('S.relay && S.relay.resumedPhase'), 'game');
+run('relayClose(); relayForgetSession();');
+check('forget clears it', run('relayReadSession()'), null);
+run('delete globalThis.sessionStorage; relayResumeFromStorage();');
+check('no storage, no crash', run('S.relay'), null);
+
 // ---- THE LOCKDOWN ----
 if (registered.includes('lockdown')) {
   console.log('\nTHE LOCKDOWN');
