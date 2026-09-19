@@ -88,6 +88,8 @@ function launchActualGame() {
     'coming-soon'   // the end of what exists
   ]);
 
+  if (typeof addSaveButton === 'function') addSaveButton();
+  if (typeof fetchSaveToken === 'function') fetchSaveToken();
   mountScene('opening');
 }
 

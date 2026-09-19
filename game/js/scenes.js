@@ -215,6 +215,7 @@ function doAdvance() {
   if (S.conn && S.conn.open) {
     S.conn.send({ type: 'scene-advance', to: next });
   }
+  if (typeof autoCheckpoint === 'function') autoCheckpoint();
   mountScene(next);
 }
 

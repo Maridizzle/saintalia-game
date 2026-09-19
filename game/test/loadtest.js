@@ -250,6 +250,26 @@ check('collect has sceneState', run("collectSnapshot().sceneState !== undefined"
 check('collect has G data', run("collectSnapshot().G.turn !== undefined"), true);
 check('collect has role', run("collectSnapshot().role"), 'reality');
 
+// ---- SAVE DATA SPLIT (Phase 11b part 2) ----
+console.log('\nSAVE DATA SPLIT');
+check('splitSaveData exists', run("typeof splitSaveData"), 'function');
+const splitResult = run("JSON.stringify(splitSaveData())");
+check('split returns object', splitResult !== 'null', true);
+check('shared has currentScene', run("splitSaveData().shared.currentScene"), 'lockdown');
+check('shared has turn', run("splitSaveData().shared.turn !== undefined"), true);
+check('shared has notes', run("Array.isArray(splitSaveData().shared.notes)"), true);
+check('private has role', run("splitSaveData().private.role"), 'reality');
+check('private has sceneState', run("splitSaveData().private.sceneState !== undefined"), true);
+check('shared lacks groqKey', run("splitSaveData().shared.groqKey === undefined"), true);
+check('private lacks groqKey', run("splitSaveData().private.groqKey === undefined"), true);
+check('rebuildSnapshot exists', run("typeof rebuildSnapshot"), 'function');
+check('rebuild round trip', run(`
+  (function() {
+    var d = splitSaveData();
+    var s = rebuildSnapshot(d.shared, d.private);
+    return s.currentScene === 'lockdown' && s.role === 'reality' && s.G.turn !== undefined;
+  })()`), true);
+
 // ---- THE FULL RUN ----
 console.log('\nTHE FULL RUN');
 const declaredOrder = (fs.readFileSync('game/js/game.js','utf8')

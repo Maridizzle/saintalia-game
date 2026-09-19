@@ -833,7 +833,34 @@ onMessage('handshake', () => {
     setJoinStatus('The veil holds. You are through.', 'connected');
   }
 
-  setTimeout(() => goToStep('step-ready'), 1200);
+  setTimeout(() => {
+    goToStep('step-ready');
+    if (typeof showResumeSaves === 'function') showResumeSaves();
+    // PHASE 11c. Probe whether the server can narrate. If so, hide the key
+    // box and change the button text. The probe is non-blocking; if it fails
+    // the key box stays visible and the player path is unchanged.
+    if (typeof probeServerNarration === 'function') {
+      probeServerNarration().then(function(available) {
+        if (!available) return;
+        var notice = document.querySelector('.key-notice');
+        if (notice) notice.style.display = 'none';
+        var btn = document.getElementById('btn-begin-game');
+        if (btn) btn.textContent = 'Begin the Story';
+        var skipBtn = btn ? btn.nextElementSibling : null;
+        if (skipBtn && skipBtn.textContent.indexOf('without') !== -1) skipBtn.style.display = 'none';
+        var label = document.querySelector('#step-ready .step-label');
+        if (label) label.textContent = 'Step III of III -- Ready';
+        var serverMsg = document.getElementById('server-narrate-msg');
+        if (!serverMsg) {
+          serverMsg = document.createElement('p');
+          serverMsg.id = 'server-narrate-msg';
+          serverMsg.style.cssText = 'text-align:center;font-size:0.82rem;color:rgba(255,255,255,0.5);font-style:italic;margin:0.5rem 0;';
+          serverMsg.textContent = 'The Narrator is awake. No key needed.';
+          if (btn && btn.parentNode) btn.parentNode.insertBefore(serverMsg, btn);
+        }
+      });
+    }
+  }, 1200);
 });
 
 onMessage('begin', (data) => {
@@ -841,6 +868,22 @@ onMessage('begin', (data) => {
   // PHASE 3a: this payload no longer carries a Groq key. See beginGame.
   window.GAME_STATE = data.gameState;
   launchGame();
+});
+
+// PHASE 11b part 2. The host picked a save slot. The joiner loads its own
+// private half from the server and restores alongside the host.
+onMessage('resume', async (data) => {
+  if (!data.shared) return;
+  document.getElementById('debug').style.display = 'none';
+  if (typeof relayRemember === 'function') relayRemember({ phase: 'game' });
+  // Load this role's private half from the database
+  var saves = typeof loadSaves === 'function' ? await loadSaves() : [];
+  var mySave = saves.find(function(s) { return s.slot === data.slot; });
+  var priv = mySave ? mySave.private : {};
+  var snapshot = typeof rebuildSnapshot === 'function'
+    ? rebuildSnapshot(data.shared, priv)
+    : data.shared;
+  if (typeof sessionRestore === 'function') sessionRestore(snapshot, 'game');
 });
 
 // ---- STEP 3: GROQ KEY ----

@@ -1462,3 +1462,100 @@ body.theme-artist .q-wrap .empty-state { color:#8a7f68; }
   .bridge-wrap { padding: 1.2rem 0.8rem; align-items: flex-start; }
   .bridge-continue { max-width: none; min-height: 44px; }
 }
+
+/* ---- SAVE BUTTON (Phase 11b part 2) ---- */
+.save-btn {
+  position: fixed;
+  bottom: 0.8rem;
+  right: 0.8rem;
+  z-index: 9996;
+  font-family: 'Cinzel', serif;
+  font-size: 0.62rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 0.4rem 0.9rem;
+  min-height: 32px;
+  border: 1px solid rgba(201,168,76,0.3);
+  background: rgba(0,0,0,0.7);
+  color: var(--gold, #c9a84c);
+  cursor: pointer;
+  border-radius: 3px;
+  transition: border-color 0.3s, background 0.3s;
+}
+.save-btn:hover {
+  border-color: rgba(201,168,76,0.6);
+  background: rgba(0,0,0,0.85);
+}
+.save-key-btn {
+  position: fixed;
+  bottom: 0.8rem;
+  right: 4.8rem;
+  z-index: 9996;
+  font-family: 'Cinzel', serif;
+  font-size: 0.55rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 0.35rem 0.7rem;
+  min-height: 28px;
+  border: 1px solid rgba(201,168,76,0.15);
+  background: rgba(0,0,0,0.5);
+  color: var(--bone, #d4c5a9);
+  cursor: pointer;
+  border-radius: 3px;
+  opacity: 0.5;
+  transition: opacity 0.3s, border-color 0.3s;
+}
+.save-key-btn:hover {
+  opacity: 1;
+  border-color: rgba(201,168,76,0.4);
+}
+
+/* ---- RESUME PANEL (Phase 11b part 2) ---- */
+.resume-section { margin-top: 1.2rem; text-align: center; }
+.resume-divider {
+  width: 60%;
+  max-width: 200px;
+  height: 1px;
+  background: rgba(201,168,76,0.15);
+  margin: 0.8rem auto;
+}
+.resume-label {
+  font-family: 'Cinzel', serif;
+  font-size: 0.68rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--bone, #d4c5a9);
+  opacity: 0.6;
+  margin-bottom: 0.8rem;
+}
+.resume-slots { display: flex; flex-direction: column; gap: 0.5rem; max-width: 340px; margin: 0 auto; }
+.resume-slot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0.8rem;
+  border: 1px solid rgba(201,168,76,0.2);
+  background: rgba(0,0,0,0.3);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: border-color 0.3s;
+}
+.resume-slot:hover { border-color: rgba(201,168,76,0.5); }
+.resume-slot-name {
+  font-family: 'Cinzel', serif;
+  font-size: 0.78rem;
+  color: var(--gold, #c9a84c);
+}
+.resume-slot-info {
+  font-size: 0.68rem;
+  color: var(--bone, #d4c5a9);
+  opacity: 0.5;
+}
+.resume-manual { margin: 0.8rem auto; max-width: 340px; display: flex; gap: 0.4rem; }
+.resume-manual .code-input { flex: 1; }
+.resume-toggle {
+  font-size: 0.65rem !important;
+  opacity: 0.5;
+  margin-top: 0.5rem !important;
+}
+.resume-toggle:hover { opacity: 0.8; }
