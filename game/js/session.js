@@ -113,7 +113,18 @@ function sessionRestore(snapshot, phase) {
 
 function restoreCharPhase(snapshot) {
   setScreen('char');
-  document.body.innerHTML = buildCharScreen();
+
+  // PHASE 11d. Use the char container instead of wiping body.
+  var lobby = document.getElementById('screen-lobby-root');
+  if (lobby) lobby.style.display = 'none';
+  var charRoot = document.getElementById('screen-char-root');
+  if (!charRoot) {
+    charRoot = document.createElement('div');
+    charRoot.id = 'screen-char-root';
+    document.body.appendChild(charRoot);
+  }
+  charRoot.style.display = '';
+  charRoot.innerHTML = buildCharScreen();
   initCharScreen();
 
   if (snapshot.myCharacter) {
@@ -157,9 +168,14 @@ function restoreGamePhase(snapshot) {
     return;
   }
 
+  // PHASE 11d. Hide lobby and char containers instead of wiping body.
+  var lobby = document.getElementById('screen-lobby-root');
+  if (lobby) lobby.style.display = 'none';
+  var charRoot = document.getElementById('screen-char-root');
+  if (charRoot) charRoot.style.display = 'none';
+
   var opts = { restore: snapshot.sceneState || {} };
   if (snapshot.advanceReady) opts.advanceReady = snapshot.advanceReady;
-  document.body.innerHTML = '';
   mountScene(sceneId, opts);
 }
 

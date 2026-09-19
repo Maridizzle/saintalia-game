@@ -449,12 +449,20 @@ function setLinkLost(msg, type, asHost) {
   // refused before that point would be routed to the hidden create panel.
   // Callers that know which side they are say so; otherwise S.isHost stands.
   if (asHost === undefined) asHost = S.relay ? S.relay.mode === 'host' : S.isHost;
-  const create = document.getElementById('create-status-area');
-  const join = document.getElementById('join-status-area');
-  if (create || join) {
-    if (asHost && create) setCreateStatus(msg, type);
-    else if (join) setJoinStatus(msg, type);
-    return;
+  // PHASE 11d. The lobby DOM persists (hidden) now, so check that the
+  // lobby is actually visible before routing into its status areas.
+  const lobbyVisible = (function() {
+    var lr = document.getElementById('screen-lobby-root');
+    return lr && lr.style.display !== 'none';
+  })();
+  if (lobbyVisible) {
+    const create = document.getElementById('create-status-area');
+    const join = document.getElementById('join-status-area');
+    if (create || join) {
+      if (asHost && create) setCreateStatus(msg, type);
+      else if (join) setJoinStatus(msg, type);
+      return;
+    }
   }
   let banner = document.getElementById('link-lost');
   if (!banner) {
@@ -729,7 +737,9 @@ function relayHandleMessage(msg) {
         // The partner may be a fresh page after a reload. Its lobby advances
         // on our handshake, so send it again while we are still in the
         // lobby ourselves. In-game there is no lobby to advance.
-        if (S.conn && document.getElementById('step-ready')) {
+        // PHASE 11d: check lobby visibility, not just DOM existence.
+        var lr = document.getElementById('screen-lobby-root');
+        if (S.conn && lr && lr.style.display !== 'none') {
           S.conn.send({ type: 'handshake', role: S.role, msg: 'The veil holds.' });
         }
       }
@@ -820,10 +830,11 @@ function relayClose() {
 onMessage('handshake', () => {
   S.connected = true;
 
-  // PHASE 11a. A handshake can arrive again mid-game, after both sides
-  // re-pair through a server restart. The lobby DOM is gone by then and
-  // there is nothing to do; the scene carries on.
-  if (!document.getElementById('step-ready')) return;
+  // PHASE 11a + 11d. A handshake can arrive again mid-game, after both
+  // sides re-pair through a server restart. The lobby is hidden now (not
+  // destroyed), so check whether it is visible before advancing it.
+  var lobbyRoot = document.getElementById('screen-lobby-root');
+  if (!lobbyRoot || lobbyRoot.style.display === 'none') return;
 
   if (S.isHost) {
     setCreateStatus('Connected. Both sides of the veil are present.', 'connected');
@@ -923,7 +934,19 @@ function launchGame() {
   relayRemember({ phase: 'char' });   // PHASE 11a step 3: what a reload should come back to
   document.getElementById('debug').style.display = 'none';
   setScreen('char');
-  document.body.innerHTML = buildCharScreen();
+
+  // PHASE 11d. Hide the lobby instead of destroying it, so Back can return.
+  var lobby = document.getElementById('screen-lobby-root');
+  if (lobby) lobby.style.display = 'none';
+
+  var charRoot = document.getElementById('screen-char-root');
+  if (!charRoot) {
+    charRoot = document.createElement('div');
+    charRoot.id = 'screen-char-root';
+    document.body.appendChild(charRoot);
+  }
+  charRoot.style.display = '';
+  charRoot.innerHTML = buildCharScreen();
   initCharScreen();
 }
 
