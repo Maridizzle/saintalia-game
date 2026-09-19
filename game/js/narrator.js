@@ -17,6 +17,11 @@
 //   the host, so the host writes every turn from its own choice alone.
 //   That gap is PLAN.md Phase 3d.
 //
+// PHASE 11c. Server-side narration. When the server has GROQ_API_KEY set,
+//   callGroqRaw calls POST /api/narrate instead of hitting Groq directly.
+//   Neither player needs to enter a key. The direct-Groq path stays for
+//   PeerJS mode (GitHub Pages, where no server exists).
+//
 // Functions here call addEntry, makeChoice, setThinking and
 // setChoicesEnabled, which live in game.js. game.js loads after this file.
 // That is fine: nothing here runs at load time.
@@ -25,13 +30,51 @@
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const GROQ_MODEL = 'llama-3.3-70b-versatile';
 
+// PHASE 11c. Set to true when the server's /api/narrate endpoint is available.
+// Probed once at lobby time by probeServerNarration(). When true, callGroqRaw
+// hits the server and no player needs a Groq key.
+let _serverNarration = false;
+
+async function probeServerNarration() {
+  try {
+    var r = await fetch('/api/narrate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    // Any response (even 400/503) means the endpoint exists. A network error
+    // or 404 means we are on Pages with no server.
+    _serverNarration = r.status !== 404;
+  } catch (e) {
+    _serverNarration = false;
+  }
+  return _serverNarration;
+}
+
 // ---- GROQ NARRATOR ----
 
-// PHASE 5. The raw call. Returns the text, or null if there is no key, the
-// API errors, or the network fails. Every scene needs this shape, because
-// the Opening's four-block offline fallback is meaningless to the Lockdown.
+// PHASE 5 + 11c. The raw call. Returns the text, or null on failure.
+// Tries the server first (11c). Falls back to direct Groq with S.groqKey
+// when the server is not available (PeerJS on Pages).
 async function callGroqRaw(system, userMsg, maxTokens) {
+  if (_serverNarration) return callGroqServer(system, userMsg, maxTokens);
   if (!S.groqKey) return null;
+  return callGroqDirect(system, userMsg, maxTokens);
+}
+
+async function callGroqServer(system, userMsg, maxTokens) {
+  try {
+    var room = (S.relay && S.relay.code) || S.roomCode || '';
+    var resp = await fetch('/api/narrate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ system: system || null, userMsg: userMsg, maxTokens: maxTokens || 800, room: room })
+    });
+    var data = await resp.json();
+    return data.text || null;
+  } catch (e) {
+    console.warn('[saintalia] server narrate failed:', e);
+    return null;
+  }
+}
+
+async function callGroqDirect(system, userMsg, maxTokens) {
   try {
     const resp = await fetch(GROQ_URL, {
       method: 'POST',
@@ -43,8 +86,6 @@ async function callGroqRaw(system, userMsg, maxTokens) {
         model: GROQ_MODEL,
         max_tokens: maxTokens || 800,
         temperature: 0.88,
-        // The 15 Questions sends a single user message with no system
-        // prompt, so an empty system is dropped rather than sent blank.
         messages: system
           ? [{ role: 'system', content: system }, { role: 'user', content: userMsg }]
           : [{ role: 'user', content: userMsg }]
@@ -80,6 +121,9 @@ const NARRATE_PENDING = {};
 const NARRATE_TIMEOUT_MS = 25000;
 
 async function requestNarration(system, userMsg, maxTokens) {
+  // PHASE 11c. When the server holds the key, everyone calls it directly.
+  if (_serverNarration) return callGroqRaw(system, userMsg, maxTokens);
+
   if (S.isHost) return callGroqRaw(system, userMsg, maxTokens);
 
   // No host to ask. The caller falls back to its own offline text.

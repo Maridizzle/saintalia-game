@@ -2,15 +2,15 @@
 // SAINTALIA -- game server
 // Author: Maridizzle
 //
-// Phase 11a + 11b. Serves the game behind one shared password and relays
-// messages between the two players of a room over a WebSocket. The server
-// does not parse game messages; it forwards them verbatim. Step 1 was an
-// echo on the same socket, deployed first to prove the socket survives
-// Railway's proxy. It did, on 2026-09-19.
+// Phase 11a + 11b + 11c. Serves the game behind one shared password and
+// relays messages between the two players of a room over a WebSocket.
 //
 // Phase 11b part 2 adds Postgres persistence: named save slots so a game
 // survives a server restart and players can come back days later. Each
 // role gets a random save token at room creation; rows are gated on it.
+//
+// Phase 11c adds server-side narration: POST /api/narrate proxies Groq
+// with GROQ_API_KEY from env. Neither player needs a key.
 //
 // Patterns copied from Maridizzle/saintalia/server.js: Express, HTTP Basic
 // Auth on everything, secrets only in env. Rooms live in memory and are
@@ -312,8 +312,62 @@ app.use(requireAuth);
 
 app.use(express.json());
 
-app.get('/api/health', (req, res) => res.json({ ok: true, step: '11b-2 saves', rooms: rooms.size }));
+app.get('/api/health', (req, res) => res.json({ ok: true, step: '11c narrate', rooms: rooms.size }));
 app.get('/api/ws-token', (req, res) => res.json({ token: issueSocketToken() }));
+
+// PHASE 11c. Server-side narration. The server holds GROQ_API_KEY so neither
+// player needs to enter one. The client POSTs { system, userMsg, maxTokens }
+// and gets back { text } or { text: null } on failure. One in-flight call per
+// room prevents a double-fire from both sides choosing at the same instant.
+const GROQ_NARRATE_URL = 'https://api.groq.com/openai/v1/chat/completions';
+const GROQ_NARRATE_MODEL = 'llama-3.3-70b-versatile';
+const narrateInFlight = new Map();
+
+app.post('/api/narrate', async (req, res) => {
+  const { system, userMsg, maxTokens, room } = req.body || {};
+  if (!userMsg) return res.status(400).json({ error: 'missing-userMsg', text: null });
+
+  const key = process.env.GROQ_API_KEY;
+  if (!key) return res.status(503).json({ error: 'no-groq-key', text: null });
+
+  const roomKey = room || '_global';
+  if (narrateInFlight.get(roomKey)) {
+    return res.status(429).json({ error: 'narration-in-flight', text: null });
+  }
+  narrateInFlight.set(roomKey, true);
+
+  try {
+    const messages = system
+      ? [{ role: 'system', content: system }, { role: 'user', content: userMsg }]
+      : [{ role: 'user', content: userMsg }];
+
+    const resp = await fetch(GROQ_NARRATE_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + key
+      },
+      body: JSON.stringify({
+        model: GROQ_NARRATE_MODEL,
+        max_tokens: maxTokens || 800,
+        temperature: 0.88,
+        messages
+      })
+    });
+
+    const data = await resp.json();
+    if (data.error) {
+      console.warn('[narrate] Groq error:', data.error.message);
+      return res.json({ text: null });
+    }
+    return res.json({ text: data.choices[0].message.content });
+  } catch (e) {
+    console.warn('[narrate] fetch failed:', e.message);
+    return res.json({ text: null });
+  } finally {
+    narrateInFlight.delete(roomKey);
+  }
+});
 
 // PHASE 11b part 2. Save token retrieval. The client asks after it knows its
 // room and role. Returns the token for that role only.

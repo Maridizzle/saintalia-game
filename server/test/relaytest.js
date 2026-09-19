@@ -185,6 +185,15 @@ async function main() {
   const tokNone = await fetch(BASE + '/api/save-token?room=no-such-room&role=reality', { headers: { Authorization: AUTH } });
   check('unknown room 404', tokNone.status, 404);
 
+  // ---- narration endpoint (Phase 11c) ----
+  console.log('\nSERVER NARRATION');
+  const narNoBody = await fetch(BASE + '/api/narrate', { method: 'POST', headers: { Authorization: AUTH, 'Content-Type': 'application/json' }, body: '{}' });
+  check('narrate missing userMsg rejected', narNoBody.status, 400);
+  const narNoKey = await fetch(BASE + '/api/narrate', { method: 'POST', headers: { Authorization: AUTH, 'Content-Type': 'application/json' }, body: JSON.stringify({ userMsg: 'hello' }) });
+  check('narrate no GROQ_API_KEY returns 503', narNoKey.status, 503);
+  const narNoAuth = await fetch(BASE + '/api/narrate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userMsg: 'hello' }) });
+  check('narrate requires auth', narNoAuth.status, 401);
+
   // ---- health reports the rooms ----
   const h = await (await fetch(BASE + '/api/health', { headers: { Authorization: AUTH } })).json();
   check('health counts rooms', h.rooms, 2);
