@@ -842,8 +842,8 @@ body.screen-char .custom-row { display:flex; gap:0.5rem; margin-top:0.3rem; }
 .energy-tag { font-family:'Cinzel',serif; font-size:clamp(0.55rem,1vw,0.72rem); letter-spacing:0.15em; color:#c0392b; opacity:0.8; }
 
 /* BODY GRID */
-.g-body { display:grid; grid-template-columns:1fr 260px 1fr; flex:1; min-height:0; overflow:hidden; }
-@media(max-width:800px) { .g-body{grid-template-columns:1fr;overflow-y:auto;} }
+.g-body { display:grid; grid-template-columns:1fr 260px 1fr; grid-template-rows:1fr; flex:1; min-height:0; overflow:hidden; }
+@media(max-width:800px) { .g-body{grid-template-columns:1fr;grid-template-rows:none;overflow-y:auto;} }
 
 /* SIDE PANELS */
 .side { display:flex; flex-direction:column; border-right:1px solid rgba(255,255,255,0.05); overflow:hidden; }
