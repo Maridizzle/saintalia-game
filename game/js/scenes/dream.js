@@ -152,6 +152,9 @@ function dmCorrectPlacement(objectId, slotIndex) {
   DM.placedCount++;
   DM.holding = null;
 
+  var countEl = document.getElementById('dmCount');
+  if (countEl) countEl.textContent = 'Placed: ' + DM.placedCount + ' / ' + DREAM_SLOT_COUNT;
+
   dmEntry('The wall accepts', DREAM_CORRECT_FEEDBACK, 'flash');
 
   // Update object button
@@ -232,6 +235,8 @@ function dmSceneComplete() {
   dmEntry('The Dream',
     'The wall goes dark. Every symbol is filled. Every object is where it belongs, and where it belongs is inside a pattern that is now, irreversibly, inside both of you. You understand the veil. You understand what is poisoning it. You cannot unknow it. Neither of you chose this. Neither of you can put it back.',
     'system');
+
+  DM.ctx.send({ kind: 'complete' });
 
   var cont = document.getElementById('dmContinue');
   if (cont) cont.style.display = 'block';
