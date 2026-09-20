@@ -232,6 +232,7 @@ async function dmFireFlash(flash, objectId) {
 
 function dmSceneComplete() {
   DM.complete = true;
+  if (typeof G !== 'undefined') G.dreamPlaced = DM.placedCount;
   dmEntry('The Dream',
     'The wall goes dark. Every symbol is filled. Every object is where it belongs, and where it belongs is inside a pattern that is now, irreversibly, inside both of you. You understand the veil. You understand what is poisoning it. You cannot unknow it. Neither of you chose this. Neither of you can put it back.',
     'system');

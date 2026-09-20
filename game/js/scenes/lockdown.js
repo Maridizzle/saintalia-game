@@ -272,6 +272,7 @@ function lkFireFlash(obj) {
 
 function lkMarkComplete() {
   LK.complete = true;
+  if (typeof G !== 'undefined') G.lockdownFound = LK.foundCount;
   const card = document.getElementById('lkComplete');
   if (card) card.classList.add('show');
   const cont = document.getElementById('lkContinue');

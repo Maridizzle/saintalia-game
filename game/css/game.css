@@ -1162,6 +1162,13 @@ body.screen-lobby::after { height: 100vh; height: 100dvh; }
   .mural-canvas, #muralSvg { min-height: 180px; }
 }
 
+/* ---- 8.6 Short portrait viewports ----
+   At 690px-height the mural's 240px floor plus two feeds, header, notes and
+   controls exceed the viewport. Shrink the mural so the page stays usable. */
+@media (max-width: 800px) and (max-height: 700px) {
+  .mural-canvas, #muralSvg { min-height: 180px; }
+}
+
 
 /* ============================================================
    9. THE LOCKDOWN  (Phase 5)

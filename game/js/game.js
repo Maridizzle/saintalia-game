@@ -647,8 +647,14 @@ async function submitCustom(side) {
 
 // ---- NOTES ----
 function sendNote(side) {
-  const input = document.getElementById('noteInput');
-  if (!input || !input.value.trim()) return;
+  var sideId = side === 'fantasy' ? 'holoInput' : 'phoneInput';
+  var sideEl = document.getElementById(sideId);
+  var centerEl = document.getElementById('noteInput');
+
+  var input = (sideEl && sideEl.value.trim()) ? sideEl
+            : (centerEl && centerEl.value.trim()) ? centerEl
+            : null;
+  if (!input) return;
 
   const text = input.value.trim();
   input.value = '';

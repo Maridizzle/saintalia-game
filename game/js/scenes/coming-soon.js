@@ -30,6 +30,8 @@ const SceneComingSoon = {
       ['Veil integrity', G.veilStrength + '% broken'],
       ['Mural layers revealed', G.muralLayer + ' of 5']
     ];
+    if (typeof G.lockdownFound !== 'undefined') stats.push(['Lockdown objects found', G.lockdownFound + ' of 5']);
+    if (typeof G.dreamPlaced !== 'undefined') stats.push(['Dream objects placed', G.dreamPlaced + ' of 5']);
     if (S.role === 'fantasy') stats.push(['Energy remaining', G.energy]);
 
     root.innerHTML = `
