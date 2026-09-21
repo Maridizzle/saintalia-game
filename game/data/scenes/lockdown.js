@@ -10,16 +10,8 @@
 //   LOCKDOWN_DECOR     lines 702-712
 //   LOCKDOWN_FLASHES  lines 714-720
 //
-// KNOWN CONTENT BUG, PORTED AS IS ON PURPOSE.
-// The vault maps the water bottle to point 2, The Neural Network, and the
-// compass to point 3, The Book. This data has them crossed: the bottle
-// carries 'The Book' and the compass carries 'The Neural Network'. The point
-// IDs are correct on both; only the flash names are swapped. Points 1, 4 and
-// 5 are right.
-//
-// This is Maridizzle's content and Maridizzle's fix. Swapping the two
-// flashName values here is the whole repair when she wants it made. Do not
-// make it unasked.
+// Flash content swap (bottle/compass) fixed: bottle = The Neural Network
+// (point 2), compass = The Book (point 3), matching the vault.
 // ============================================================
 
 // ---- ROOM MAP ----
@@ -93,8 +85,8 @@ const LOCKDOWN_OBJECTS = {
   clock:      { id:'clock',      name:'a clock with no hands but too many faces',              shortName:'clock',      aliases:['clock','clocks','dial','dials'],                       hint:'south end, in the entrance itself',     flashName:'The Flythrough',    pointId:4, gridX: LOCKDOWN_ROOM_POSITIONS.entrance.x,     gridY: LOCKDOWN_ROOM_POSITIONS.entrance.y,     found:false },
   photograph: { id:'photograph', name:'a photograph where every subject has their back turned', shortName:'photograph', aliases:['photograph','photo','photos','picture','pictures','frame'], hint:'central corridor, north of the entrance', flashName:'The Harvest',        pointId:5, gridX: LOCKDOWN_ROOM_POSITIONS.corridor.x,     gridY: LOCKDOWN_ROOM_POSITIONS.corridor.y,     found:false },
   key:        { id:'key',        name:'a key made of teeth',                                    shortName:'key',        aliases:['key','keys'],                                          hint:'far northeast, near the storage area',  flashName:'Cellular Fusion',   pointId:1, gridX: LOCKDOWN_ROOM_POSITIONS.storageRoom.x,  gridY: LOCKDOWN_ROOM_POSITIONS.storageRoom.y,  found:false },
-  compass:    { id:'compass',    name:'a compass whose needle points inward',                   shortName:'compass',    aliases:['compass','compasses'],                                 hint:'northwest, in the stairwell',           flashName:'The Neural Network', pointId:3, gridX: LOCKDOWN_ROOM_POSITIONS.stairwell.x,    gridY: LOCKDOWN_ROOM_POSITIONS.stairwell.y,    found:false },
-  bottle:     { id:'bottle',     name:'a water bottle that pours nothing',                      shortName:'bottle',     aliases:['bottle','bottles','water bottle','water'],             hint:'far north, west wing',                  flashName:'The Book',          pointId:2, gridX: LOCKDOWN_ROOM_POSITIONS.sideCorridor.x, gridY: LOCKDOWN_ROOM_POSITIONS.sideCorridor.y, found:false },
+  compass:    { id:'compass',    name:'a compass whose needle points inward',                   shortName:'compass',    aliases:['compass','compasses'],                                 hint:'northwest, in the stairwell',           flashName:'The Book',           pointId:3, gridX: LOCKDOWN_ROOM_POSITIONS.stairwell.x,    gridY: LOCKDOWN_ROOM_POSITIONS.stairwell.y,    found:false },
+  bottle:     { id:'bottle',     name:'a water bottle that pours nothing',                      shortName:'bottle',     aliases:['bottle','bottles','water bottle','water'],             hint:'far north, west wing',                  flashName:'The Neural Network', pointId:2, gridX: LOCKDOWN_ROOM_POSITIONS.sideCorridor.x, gridY: LOCKDOWN_ROOM_POSITIONS.sideCorridor.y, found:false },
 };
 
 // ---- DECOR (non-key items players might poke at) ----
