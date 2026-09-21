@@ -91,7 +91,7 @@ function lkUpdateRoomIndicator() {
 
 // ---- INPUT CLASSIFIERS (ported verbatim in behavior) ----
 
-const LK_CONTACT_WORDS = ['touch','grab','pick up','take','hold','press','reach for','lift','examine closely','handle','feel','clutch','pick it up','take it'];
+const LK_CONTACT_WORDS = ['touch','grab','pick up','take','hold','press','reach for','lift','examine closely','handle','feel','clutch','pick it up','take it','examine','inspect','look at','check','poke','open'];
 const LK_INSPECT_WORDS = [...LK_CONTACT_WORDS, 'examine','inspect','look at','check','poke','open'];
 const LK_SEARCH_WORDS = ['search','look around','examine','investigate','explore','scan','check','inspect','look at the room','look around the room'];
 const LK_COMPASS_NAMES = { N: 'north', S: 'south', E: 'east', W: 'west' };
@@ -248,6 +248,9 @@ function lkFireFlash(obj) {
   if (LK.found[obj.id]) return;
   LK.found[obj.id] = true;
   LK.foundCount++;
+
+  var counter = document.getElementById('lkFoundCounter');
+  if (counter) counter.textContent = 'Objects found: ' + LK.foundCount + ' / 5';
 
   const flashText = LOCKDOWN_FLASHES[obj.flashName];
   lkEntry('Flash -- ' + obj.flashName, flashText, 'flash');
@@ -463,6 +466,10 @@ const SceneLockdown = {
 
     if (isArtist) {
       lkUpdateRoomIndicator();
+      if (LK.foundCount > 0) {
+        var counter = document.getElementById('lkFoundCounter');
+        if (counter) counter.textContent = 'Objects found: ' + LK.foundCount + ' / 5';
+      }
       const feed = document.getElementById('lkFeed');
       LK.log.forEach(entry => {
         if (!feed) return;
@@ -527,6 +534,7 @@ const SceneLockdown = {
         <span class="room-name" id="lkRoomName">Entrance Hall</span>
         <span class="room-exits" id="lkRoomExits"></span>
       </div>
+      <div class="found-counter" id="lkFoundCounter">Objects found: 0 / 5</div>
       <div class="story-feed" id="lkFeed"></div>
       <div class="thinking-row" id="lkThinking">The building listens...</div>
       <div class="action-row">
