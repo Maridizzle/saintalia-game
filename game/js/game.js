@@ -53,6 +53,22 @@ const G = {
   // Previously the joiner's choice was never sent anywhere and the host
   // narrated every turn from its own choice alone.
   pendingChoices: { fantasy: null, reality: null },
+
+  // NARRATOR MEMORY. One entry per resolved turn, in play order:
+  // { turn, fantasy, reality, narrator }. Entry zero is the opening beat,
+  // logged as turn 0 with no choices. resolveTurnIfReady reads the tail so the
+  // narrator sees the shape of the last few turns rather than a pile of
+  // fantasy entries followed by a pile of reality entries. The two
+  // per-side history arrays above are untouched and still fed.
+  turnLog: [],
+
+  // SCORING. The four ending variables from the vault. Plumbing only: they
+  // exist, persist, and reset. No Opening choice carries a weight because
+  // the vault assigns none there. Weights are Maridizzle's to assign.
+  veilDeath: 0,
+  hopelessness: 0,
+  veilKnowledge: 0,
+  voidCorruption: 0,
 };
 
 // The captions below predate the established mural progression in the vault
@@ -448,6 +464,9 @@ async function beginOpeningScene() {
 
     applyNarratorResponse(raw);
     G.openingDone = true;
+    // Turn 0: the opening beat, before any choice. Turn 1 is the first
+    // resolved pair of choices, which happens while G.turn is still 1.
+    logTurn(0, null, null, raw);
 
     if (S.role === 'reality') setTimeout(() => showCorruptedImage(), 1200);
     if (S.role === 'fantasy') setTimeout(() => veilBlink(), 800);
@@ -508,12 +527,18 @@ async function resolveTurnIfReady() {
   const fC = S.role === 'fantasy' ? S.myCharacter : S.otherCharacter;
   const rC = S.role === 'reality' ? S.myCharacter : S.otherCharacter;
 
-  // Both sides' recent history, so the narrator can see the shape of the turn
-  // rather than one player's half of it.
-  const recentHistory = G.fantasyHistory
-    .concat(G.realityHistory)
-    .slice(-6)
-    .map(h => h.text)
+  // The last three resolved turns in play order, both choices and the
+  // narration that answered them. Replaces a concat of the two per-side
+  // histories that put every fantasy entry before every reality entry and
+  // never contained the opening beat at all.
+  const recentHistory = G.turnLog
+    .slice(-3)
+    .map(e => {
+      const acts = (e.fantasy || e.reality)
+        ? `${fC.name}: "${e.fantasy || ''}"\n${rC.name}: "${e.reality || ''}"\n`
+        : '';
+      return `[Turn ${e.turn}]\n${acts}${e.narrator}`;
+    })
     .join('\n\n');
 
   const prompt = `The fantasy player (${fC.name}) chose: "${f}"\nThe reality player (${rC.name}) chose: "${r}"\n\nRecent history:\n${recentHistory}\n\nContinue the scene with consequence for both sides. Nothing is safe. Each player only perceives their own side of what just happened. Produce all four sections.`;
@@ -531,11 +556,22 @@ async function resolveTurnIfReady() {
 
   applyNarratorResponse(raw);
   G.fantasyHistory.push({ role: 'narrator', text: raw });
+  logTurn(G.turn, f, r, raw);
 
   G.pendingChoices = { fantasy: null, reality: null };
   G.waitingForNarrator = false;
 
   advanceTurn();
+}
+
+// Appends one resolved turn to G.turnLog. Both sides call this so a joiner
+// that reloads and comes back as host carries the same memory. Guarded
+// against double entry for the same turn (a host that resolved, then
+// received its own echo, or a restore that replays).
+function logTurn(turn, fantasy, reality, narrator) {
+  const last = G.turnLog[G.turnLog.length - 1];
+  if (last && last.turn === turn) return;
+  G.turnLog.push({ turn, fantasy, reality, narrator });
 }
 
 // Host only. Turn counter, veil drift and mural, all broadcast so the other
@@ -583,6 +619,12 @@ onMessage('note', (data) => receiveNote(data));
 onMessage('narrator-update', forScene('opening', (data) => {
   applyNarratorResponse(data.raw);
   G.waitingForNarrator = false;
+
+  // The joiner keeps the same turn memory the host does. pendingChoices
+  // still holds both choices here, since the host resolves only once both
+  // have arrived and this side stored the other's on player-choice. The
+  // opening beat, which carries no choices, is turn 0 as on the host.
+  logTurn(G.openingDone ? data.turn : 0, G.pendingChoices.fantasy, G.pendingChoices.reality, data.raw);
 
   // PHASE 3d. Clear the pair so the next turn can accept fresh choices.
   G.pendingChoices = { fantasy: null, reality: null };
@@ -853,6 +895,11 @@ function returnToCharacter() {
   G.fantasyChoices = [];
   G.realityChoices = [];
   G.pendingChoices = { fantasy: null, reality: null };
+  G.turnLog = [];
+  G.veilDeath = 0;
+  G.hopelessness = 0;
+  G.veilKnowledge = 0;
+  G.voidCorruption = 0;
 
   // Clear characters so both sides have to re-finalize
   S.myCharacter = null;
