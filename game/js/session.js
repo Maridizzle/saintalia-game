@@ -48,7 +48,12 @@ function collectSnapshot() {
       openingDone: G.openingDone,
       fantasyChoices: G.fantasyChoices,
       realityChoices: G.realityChoices,
-      pendingChoices: G.pendingChoices
+      pendingChoices: G.pendingChoices,
+      turnLog: G.turnLog,
+      veilDeath: G.veilDeath,
+      hopelessness: G.hopelessness,
+      veilKnowledge: G.veilKnowledge,
+      voidCorruption: G.voidCorruption
     },
     sceneOrder: SCENE_ORDER.slice(),
     currentScene: currentSceneId(),
@@ -157,6 +162,11 @@ function restoreGamePhase(snapshot) {
   G.fantasyChoices = sg.fantasyChoices || [];
   G.realityChoices = sg.realityChoices || [];
   G.pendingChoices = sg.pendingChoices || { fantasy: null, reality: null };
+  G.turnLog = sg.turnLog || [];
+  G.veilDeath = sg.veilDeath || 0;
+  G.hopelessness = sg.hopelessness || 0;
+  G.veilKnowledge = sg.veilKnowledge || 0;
+  G.voidCorruption = sg.voidCorruption || 0;
 
   if (snapshot.sceneOrder && snapshot.sceneOrder.length) {
     setSceneOrder(snapshot.sceneOrder);
