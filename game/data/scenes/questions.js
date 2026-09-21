@@ -12,11 +12,12 @@
 //
 // TWO THINGS MARIDIZZLE STILL OWNS HERE, neither of which Claude will touch:
 //
-// 1. The ten tangent guardrails are written as Sasha's and Tyvian's specific
-//    biographies (a custody arrangement, a shed creature, a named scroll).
-//    The decision was that those two are TEMPLATES and character creation
-//    stays, so these need genericizing into shapes that fit any character.
-//    They are data, so rewriting them never touches code.
+// 1. The ten tangent guardrails were originally written as Sasha's and
+//    Tyvian's specific biographies. Names and gendered pronouns have been
+//    replaced with they/them, but the biographical details (a custody
+//    arrangement, a shed creature, a named scroll) are still Sasha/Tyvian
+//    shaped. Genericizing the content into shapes that fit any character
+//    is Maridizzle's rewrite. They are data, so rewriting never touches code.
 //
 // 2. Trigger collisions, which are ambiguities in the vault itself rather
 //    than bugs here. The vault claims Q4-B and Q7-B for BOTH Self as Threat
@@ -99,31 +100,31 @@ const QUESTIONS_NEUTRAL = {
 
 const QUESTIONS_TANGENTS = {
   broken_ep_a:{name:'Broken Epistemology A',
-    reality:'Ancient art folklore she investigated with genuine excitement. The trail dead-ended in a way that felt wrong, not just incomplete. Something tied to her work. A cosmically blocked thread she never finished pulling.',
+    reality:'Ancient art folklore they investigated with genuine excitement. The trail dead-ended in a way that felt wrong, not just incomplete. Something tied to their work. A cosmically blocked thread they never finished pulling.',
     fantasy:'A scroll about the vast nature of the universe. Sought it out deliberately. Read it once. It sat in them. Now they are standing inside it.'},
   broken_ep_b:{name:'Broken Epistemology B',
-    reality:'A location or surface mid-creation where the art felt like it was responding to her rather than the other way around. No language for it that didn\'t sound like a breakdown. Never told anyone.',
+    reality:'A location or surface mid-creation where the art felt like it was responding to them rather than the other way around. No language for it that didn\'t sound like a breakdown. Never told anyone.',
     fantasy:'Places in Saintalia avoided without explanation. Not dangerous by any known measure. Wrong in a frequency they could feel but not name. Stopped mentioning it because no one else seemed to feel it.'},
   conditional_a:{name:'Conditional Survival A',
-    reality:'The commission as total financial load-bearing structure. One job, one building, one wall. Too much weight on a single contract. Knew it. Took it anyway. Now trapped inside the thing keeping her alive.',
+    reality:'The commission as total financial load-bearing structure. One job, one building, one wall. Too much weight on a single contract. Knew it. Took it anyway. Now trapped inside the thing keeping them alive.',
     fantasy:'The terminal as sole infrastructure. Everything runs through technology never built for this purpose. No backup. No alternative. Knew it the whole time. Kept going anyway.'},
   conditional_b:{name:'Conditional Survival B',
-    reality:'The colleague she was trying to reach when this started. Survival structured around being reliable for someone who doesn\'t know how much she holds. The wrong number was her trying to be that person one more time.',
+    reality:'The colleague they were trying to reach when this started. Survival structured around being reliable for someone who doesn\'t know how much they hold. The wrong number was them trying to be that person one more time.',
     fantasy:'Self-appointed witness to the creatures of Saintalia. Not needed, not asked. The only thing that makes them feel like they belong in their own world. Responsibility entirely self-assigned.'},
   grief_a:{name:'Grief Topology A',
-    reality:'A tradition of mural work with no remaining market. One of the last practitioners of something the world stopped needing before she finished learning it. The spite is quiet, professional, and has been running underneath everything for years.',
-    fantasy:'A species that didn\'t die -- dissolved. Biology predicated on the veil boundary existing. Tyvian watched it happen over years with no framework for a creature dying of a metaphysical condition. The spite is directed at whatever allowed the failing.'},
+    reality:'A tradition of mural work with no remaining market. One of the last practitioners of something the world stopped needing before they finished learning it. The spite is quiet, professional, and has been running underneath everything for years.',
+    fantasy:'A species that didn\'t die -- dissolved. Biology predicated on the veil boundary existing. They watched it happen over years with no framework for a creature dying of a metaphysical condition. The spite is directed at whatever allowed the failing.'},
   grief_b:{name:'Grief Topology B',
-    reality:'A child lost to a custody arrangement she initiated because she knew she couldn\'t be what was needed. The child is alive, healthy, well raised. Sasha signed the papers knowingly. The knowing made it worse. Everything she has made since is for someone who will probably never see it.',
-    fantasy:'A creature shed during a dangerous period because survival required it. It didn\'t die immediately. It died slowly looking for them. Tyvian went back later and followed the trail far enough to understand the ending. Has never decided if going back was courage or cruelty.'},
+    reality:'A child lost to a custody arrangement they initiated because they knew they couldn\'t be what was needed. The child is alive, healthy, well raised. They signed the papers knowingly. The knowing made it worse. Everything they have made since is for someone who will probably never see it.',
+    fantasy:'A creature shed during a dangerous period because survival required it. It didn\'t die immediately. It died slowly looking for them. They went back later and followed the trail far enough to understand the ending. Has never decided if going back was courage or cruelty.'},
   self_threat_a:{name:'Self as Threat A',
-    reality:'A collaborator burned through absence not malice. The collaborator was gracious. That\'s the part she can\'t put down. A clean betrayal would have been easier to carry.',
+    reality:'A collaborator burned through absence not malice. The collaborator was gracious. That\'s the part they can\'t put down. A clean betrayal would have been easier to carry.',
     fantasy:'A negotiation that went wrong traced directly to a decision they made in the room. They replay the moment of certainty more than the moment of consequence. That\'s where the real failure lives.'},
   self_threat_b:{name:'Self as Threat B',
-    reality:'A period she doesn\'t date precisely. Choices she hasn\'t repeated but hasn\'t fully accounted for. Not crimes. Nothing with a clean name. The commission was partly about proving that period is over. She is not certain it is over.',
+    reality:'A period they don\'t date precisely. Choices they haven\'t repeated but haven\'t fully accounted for. Not crimes. Nothing with a clean name. The commission was partly about proving that period is over. They are not certain it is over.',
     fantasy:'A capability they have that they don\'t use because of what using it felt like the one time they did. Not the consequence -- the feeling during. The capability hasn\'t diminished. They check sometimes.'},
   systemic_rot:{name:'Systemic Rot',
-    reality:'The corporate capture of what gets funded and called important. Watched it happen over her entire career. Takes commissions like this one because there is nothing else. The anger is old, specific, and has excellent aim.',
+    reality:'The corporate capture of what gets funded and called important. Watched it happen over their entire career. Takes commissions like this one because there is nothing else. The anger is old, specific, and has excellent aim.',
     fantasy:'The council structures of Saintalia. Governance built for a world that no longer exists. The veil showing symptoms longer than official record acknowledges. The rot was not malicious. It was institutional.'},
   connection:{name:'The Connection Itself',
     reality:'Has been the wrong number before -- figuratively. Built entire relationships out of being the one who picked up. No framework for being chosen by accident. This is the first time the accident feels like it might have been the point.',
