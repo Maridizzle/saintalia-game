@@ -691,7 +691,7 @@
     </div>
 
     <button class="btn-primary" id="btn-begin-game" onclick="beginGame()">Begin the Story</button>
-    <button class="btn-secondary" onclick="skipGroq()">Continue without AI narration</button>
+    <button class="btn-secondary" onclick="skipGroq()">Continue without AI narration (opening only)</button>
   </div>
 </div>
 
@@ -2594,7 +2594,18 @@ ${G.turnLog.slice(-2).join('\n\n') || 'None since the opening.'}
 
 Continue the scene with consequence for both sides. Nothing is safe. Each player only perceives their own side of what just happened. Produce all four sections.`;
 
-  const raw = S.groqKey ? await callGroq(buildCombinedSystem(), prompt) : buildOfflineCombined();
+  // Without a key only the opening plays; the offline text is the opening and
+  // must not repeat every turn. Both players are told plainly and stay locked.
+  if (!S.groqKey) {
+    const text = 'The story cannot go past the opening without AI narration. Start a new game with a Groq key to keep playing.';
+    addEntry('shared', text, 'system');
+    if (S.conn && S.conn.open) S.conn.send({ type: 'narrator-offline', text });
+    setThinking(false);
+    G.resolving = false;
+    return;
+  }
+
+  const raw = await callGroq(buildCombinedSystem(), prompt);
   G.turnLog.push(`Turn ${G.turn}:\n${thisTurn}\n${raw}`);
   const answered = parseNarratorResponse(raw).veilRead;
   if (veilReadAsk && answered) G.veilReadAnswers.push({ question: veilReadAsk.question, answer: answered });
@@ -2648,7 +2659,8 @@ function setupGameMessageHandler() {
       applyNarratorResponse(data.raw);
       if (typeof data.veil === 'number') updateVeil(data.veil);
       G.waitingForNarrator = false;
-      G.turn = data.turn + 1;
+      // The host does not advance its turn after the opening, only after real turns
+      G.turn = G.openingDone ? data.turn + 1 : data.turn;
       const turnEl = document.getElementById('turnNum');
       if (turnEl) turnEl.textContent = G.turn;
       if (!G.openingDone) {
@@ -2661,6 +2673,13 @@ function setupGameMessageHandler() {
     if (data.type === 'mural-advance') {
       advanceMuralLayer(data.layer, data.caption);
       addEntry('shared', 'The mural shifts.', 'system');
+      // Same veil slip a fantasy host gets: the screen blinks and energy drains
+      if (S.role === 'fantasy') veilBlink();
+    }
+
+    if (data.type === 'narrator-offline') {
+      setThinking(false);
+      addEntry('shared', data.text, 'system');
     }
 
     if (data.type === 'veil-update') updateVeil(data.strength);
