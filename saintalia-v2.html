@@ -1671,7 +1671,51 @@ const G = {
   openingDone: false,
   fantasyChoices: [],
   realityChoices: [],
+  // Host only: each side's choice for the current turn, resolved once both are in
+  pendingChoices: { fantasy: null, reality: null },
+  resolving: false,
+  turnLog: [],
 };
+
+// ---- STAT CHECKS ----
+// One six-sided die plus the stat. 6 or more succeeds, 4-5 is a partial
+// success with a cost, under 4 fails.
+// Failure costs: fantasy loses 8 energy, the veil takes an extra 2-7.
+// Partial costs half: 4 energy, veil 1-3.
+const CHECK_SUCCESS = 6;
+const CHECK_PARTIAL = 4;
+const ENERGY_COST = { failure: 8, partial: 4 };
+const VEIL_COST = { failure: [2, 7], partial: [1, 3] };
+
+function randInt(min, max) { return min + Math.floor(Math.random() * (max - min + 1)); }
+
+function rollCheck(stat) {
+  const die = randInt(1, 6);
+  const bonus = (S.myCharacter.stats && S.myCharacter.stats[stat]) || 0;
+  const total = die + bonus;
+  const result = total >= CHECK_SUCCESS ? 'success' : total >= CHECK_PARTIAL ? 'partial' : 'failure';
+  return { stat, die, bonus, total, result };
+}
+
+function describeRoll(roll) {
+  if (!roll) return 'no check';
+  return roll.stat + ' check: ' + roll.result.toUpperCase() + ' (rolled ' + roll.die + ' + ' + roll.bonus + ' = ' + roll.total + ')';
+}
+
+// Choice dropdown for typed actions: every stat for this side with the player's value
+function statOptions(side) {
+  const stats = (S.myCharacter && S.myCharacter.stats) || {};
+  return '<option value="">Stat...</option>' + CHAR_DATA[side].stats
+    .map(s => `<option value="${s}">${s} (${stats[s] || 0})</option>`).join('');
+}
+
+// Narrator choices arrive as {text, stat} objects, or plain strings from the
+// offline opening and older replies. A stat not on this side's list is dropped.
+function normalizeChoice(choice, side) {
+  const text = typeof choice === 'string' ? choice : (choice && choice.text) || '';
+  const stat = choice && typeof choice === 'object' && CHAR_DATA[side].stats.includes(choice.stat) ? choice.stat : null;
+  return { text, stat };
+}
 
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const GROQ_MODEL = 'llama-3.3-70b-versatile';
@@ -1807,6 +1851,12 @@ function buildGameScreen() {
     .fantasy-side .custom-btn{color:var(--gold-light);border-color:rgba(var(--gold-rgb),0.3);}
     .reality-side .custom-btn{color:var(--mist-light);border-color:rgba(var(--mist-rgb),0.3);}
     .custom-btn:disabled{opacity:0.3;cursor:not-allowed;}
+    .custom-stat{background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.12);color:var(--parchment);font-family:'Cinzel',serif;font-size:0.75rem;padding:0 0.3rem;outline:none;max-width:9rem;}
+    .custom-stat:disabled{opacity:0.3;}
+    .choice-stat{font-family:'Cinzel',serif;font-size:0.72rem;letter-spacing:0.05em;opacity:0.7;margin-right:0.4rem;white-space:nowrap;}
+    .entry.roll{border-left-color:var(--gold-light);color:var(--parchment);}
+    .entry.roll.failure{border-left-color:var(--blood-light);}
+    .entry.roll.partial{border-left-color:var(--mist-light);}
 
     /* THINKING */
     .thinking{display:none;font-family:'Cinzel',serif;font-size:1.05rem;letter-spacing:0.2em;text-align:center;padding:0.4rem;animation:flick 1.5s ease-in-out infinite;}
@@ -1938,6 +1988,7 @@ function buildGameScreen() {
         <div id="fantasyChoicesBtns"></div>
         <div class="custom-row">
           <input class="custom-input" id="fantasyCustom" placeholder="Or write your own action..." />
+          <select class="custom-stat" id="fantasyCustomStat" disabled>${statOptions('fantasy')}</select>
           <button class="custom-btn" id="fantasyCustomBtn" onclick="submitCustom('fantasy')" disabled>Act</button>
         </div>
       </div>
@@ -2089,6 +2140,7 @@ function buildGameScreen() {
         <div id="realityChoicesBtns"></div>
         <div class="custom-row">
           <input class="custom-input" id="realityCustom" placeholder="Or write your own action..." />
+          <select class="custom-stat" id="realityCustomStat" disabled>${statOptions('reality')}</select>
           <button class="custom-btn" id="realityCustomBtn" onclick="submitCustom('reality')" disabled>Act</button>
         </div>
       </div>
@@ -2226,9 +2278,11 @@ CURRENT TURN: ${G.turn}.
 You must produce EXACTLY four labeled sections and nothing else. No preamble. No commentary outside the sections.
 
 FANTASY_NARRATIVE: [vivid unsettling literary prose under 140 words written entirely from the fantasy player's perspective and sensory experience. They do not know what is happening on the reality side. They only feel consequences and disturbances through the veil.]
-FANTASY_CHOICES:{"choices":["First specific choice","Second choice with risk or tension","Third choice -- open path"]}
+FANTASY_CHOICES:{"choices":[{"text":"First specific choice","stat":"Cunning"},{"text":"Second choice with risk or tension","stat":"Ferocity"},{"text":"Third choice -- open path","stat":"Veilsight"}]}
 REALITY_NARRATIVE: [vivid unsettling literary horror prose under 140 words written entirely from the reality player's perspective and sensory experience. They do not know what is happening in Saintalia. They only feel the ripple effects.]
-REALITY_CHOICES:{"choices":["First specific choice","Second choice with tension or risk","Third choice -- open path"]}`;
+REALITY_CHOICES:{"choices":[{"text":"First specific choice","stat":"Perception"},{"text":"Second choice with tension or risk","stat":"Composure"},{"text":"Third choice -- open path","stat":"Craft"}]}
+
+Each choice names the one stat it tests, picked to fit the action. Fantasy stats are exactly: ${CHAR_DATA.fantasy.stats.join(', ')}. Reality stats are exactly: ${CHAR_DATA.reality.stats.join(', ')}. Vary the stats across the three choices. The stat names in the example above are only examples.`;
 }
 
 function buildCombinedOpening() {
@@ -2274,7 +2328,7 @@ function parseNarratorResponse(text) {
   const fnMatch = text.match(/FANTASY_NARRATIVE:\s*([\s\S]*?)(?=FANTASY_CHOICES:|$)/);
   if (fnMatch) result.fantasyNarrative = fnMatch[1].trim();
 
-  const fcMatch = text.match(/FANTASY_CHOICES:\s*(\{"choices":\s*\[[^\]]*\]\})/);
+  const fcMatch = text.match(/FANTASY_CHOICES:\s*(\{"choices":\s*\[[^\]]*\]\s*\})/);
   if (fcMatch) {
     try { result.fantasyChoices = JSON.parse(fcMatch[1]).choices; } catch(e) {}
   }
@@ -2282,7 +2336,7 @@ function parseNarratorResponse(text) {
   const rnMatch = text.match(/REALITY_NARRATIVE:\s*([\s\S]*?)(?=REALITY_CHOICES:|$)/);
   if (rnMatch) result.realityNarrative = rnMatch[1].trim();
 
-  const rcMatch = text.match(/REALITY_CHOICES:\s*(\{"choices":\s*\[[^\]]*\]\})/);
+  const rcMatch = text.match(/REALITY_CHOICES:\s*(\{"choices":\s*\[[^\]]*\]\s*\})/);
   if (rcMatch) {
     try { result.realityChoices = JSON.parse(rcMatch[1]).choices; } catch(e) {}
   }
@@ -2306,14 +2360,18 @@ function applyNarratorResponse(raw) {
   const container = document.getElementById(side + 'ChoicesBtns');
   if (container && myChoices.length) {
     container.innerHTML = '';
-    myChoices.forEach((choice, i) => {
+    const choices = myChoices.map(c => normalizeChoice(c, side)).filter(c => c.text);
+    choices.forEach((choice, i) => {
       const btn = document.createElement('button');
       btn.className = 'choice-btn';
-      btn.innerHTML = `<span class="choice-num">${i + 1}.</span>${choice}`;
-      btn.onclick = () => makeChoice(side, choice);
+      const statTag = choice.stat
+        ? `<span class="choice-stat">[${choice.stat} ${(S.myCharacter.stats && S.myCharacter.stats[choice.stat]) || 0}]</span>`
+        : '';
+      btn.innerHTML = `<span class="choice-num">${i + 1}.</span>${statTag}${choice.text}`;
+      btn.onclick = () => makeChoice(side, choice.text, choice.stat);
       container.appendChild(btn);
     });
-    G[side + 'Choices'] = myChoices;
+    G[side + 'Choices'] = choices;
   }
 
   setChoicesEnabled(true);
@@ -2371,52 +2429,92 @@ async function beginOpeningScene() {
 }
 
 // ---- MAKE CHOICE ----
-async function makeChoice(side, choiceText) {
+// Both players choose, then the host resolves the turn with both choices in
+// one narrator call. The roll happens here, on the chooser's own screen; the
+// joiner sends its choice and roll to the host as a 'choice' message.
+async function makeChoice(side, choiceText, stat) {
   if (G.waitingForNarrator) return;
   G.waitingForNarrator = true;
   setChoicesEnabled(false);
-  setThinking(true);
 
   addEntry('private', choiceText, 'action');
   addEntry('shared', `Turn ${G.turn} -- ${S.myCharacter.name} acts`, 'system');
 
-  const history = G[side + 'History'];
-  history.push({ role: 'player', text: choiceText });
-  const recentHistory = history.slice(-5).map(h => h.text).join('\n\n');
-
-  const isHost = S.action === 'create';
-
-  if (isHost) {
-    const prompt = `The ${side} player (${S.myCharacter.name}) chose: "${choiceText}"\n\nRecent history:\n${recentHistory}\n\nContinue the scene with consequence for both sides. Nothing is safe. Each player only perceives their own side of what just happened. Produce all four sections.`;
-
-    let raw;
-    if (S.groqKey) {
-      raw = await callGroq(buildCombinedSystem(), prompt);
-    } else {
-      raw = buildOfflineCombined();
+  const roll = stat ? rollCheck(stat) : null;
+  if (roll) {
+    addEntry('private', describeRoll(roll), 'roll ' + roll.result);
+    // Energy is the fantasy player's own, so the cost is paid on their screen
+    if (side === 'fantasy' && ENERGY_COST[roll.result]) {
+      G.energy = Math.max(0, G.energy - ENERGY_COST[roll.result]);
+      updateEnergyDisplay();
     }
-
-    if (S.conn && S.conn.open) {
-      S.conn.send({ type: 'narrator-update', raw, turn: G.turn });
-    }
-
-    applyNarratorResponse(raw);
-    history.push({ role: 'narrator', text: raw });
-
-  } else {
-    // Joiner waits for host broadcast
-    addEntry('shared', 'Waiting for the veil...', 'system');
-    return;
   }
 
+  G[side + 'History'].push({ role: 'player', text: choiceText });
+  const choice = { side, name: S.myCharacter.name, text: choiceText, roll };
+
+  if (S.action === 'create') {
+    G.pendingChoices[side] = choice;
+    await resolveTurnIfReady();
+  } else {
+    if (S.conn && S.conn.open) S.conn.send({ type: 'choice', turn: G.turn, choice });
+    addEntry('shared', 'Waiting for the veil...', 'system');
+  }
+}
+
+function describeChoice(label, c) {
+  return c ? `${label} (${c.name}) chose: "${c.text}" -- ${describeRoll(c.roll)}` : `${label} did not act this turn.`;
+}
+
+// Host only. Runs once the host's own choice and the joiner's are both in.
+// With no live connection the host resolves alone so the game cannot stall.
+async function resolveTurnIfReady() {
+  const other = S.role === 'fantasy' ? 'reality' : 'fantasy';
+  const connected = S.conn && S.conn.open;
+  if (G.resolving || !G.pendingChoices[S.role]) return;
+  if (connected && !G.pendingChoices[other]) {
+    addEntry('shared', 'Waiting for the other side of the veil...', 'system');
+    return;
+  }
+  G.resolving = true;
+  setThinking(true);
+
+  const f = G.pendingChoices.fantasy;
+  const r = G.pendingChoices.reality;
+  G.pendingChoices = { fantasy: null, reality: null };
+  const thisTurn = describeChoice('FANTASY PLAYER', f) + '\n' + describeChoice('REALITY PLAYER', r);
+
+  const prompt = `This turn:
+${thisTurn}
+
+Honor every check result. SUCCESS: the action works as intended. PARTIAL: it works, but at a cost or with a complication. FAILURE: it goes wrong in a way that matters. NO CHECK: resolve it as the story demands. Never mention dice, rolls, or numbers in the prose.
+
+Recent history:
+${G.turnLog.slice(-2).join('\n\n') || 'None since the opening.'}
+
+Continue the scene with consequence for both sides. Nothing is safe. Each player only perceives their own side of what just happened. Produce all four sections.`;
+
+  const raw = S.groqKey ? await callGroq(buildCombinedSystem(), prompt) : buildOfflineCombined();
+  G.turnLog.push(`Turn ${G.turn}:\n${thisTurn}\n${raw}`);
+
+  // Veil: the usual 2-7 drift every turn, plus the reality player's check cost.
+  // The host owns this number and sends it so both screens agree.
+  let veil = G.veilStrength + randInt(2, 7);
+  if (r && r.roll && VEIL_COST[r.roll.result]) veil += randInt(...VEIL_COST[r.roll.result]);
+  G.veilStrength = Math.min(100, veil);
+
+  if (S.conn && S.conn.open) {
+    S.conn.send({ type: 'narrator-update', raw, turn: G.turn, veil: G.veilStrength });
+  }
+  applyNarratorResponse(raw);
+  updateVeil(G.veilStrength);
+
   G.waitingForNarrator = false;
+  G.resolving = false;
 
   G.turn++;
   const turnEl = document.getElementById('turnNum');
   if (turnEl) turnEl.textContent = G.turn;
-
-  G.veilStrength = Math.min(100, G.veilStrength + Math.floor(Math.random() * 6) + 2);
-  updateVeil(G.veilStrength);
 
   if (G.turn % 3 === 0 && G.muralLayer < 5) {
     G.muralLayer++;
@@ -2436,8 +2534,17 @@ function setupGameMessageHandler() {
   S.conn.on('data', (data) => {
     if (data.type === 'note') receiveNote(data);
 
+    // Host: the joiner's choice and roll for this turn
+    if (data.type === 'choice' && S.action === 'create' && data.choice) {
+      const other = S.role === 'fantasy' ? 'reality' : 'fantasy';
+      G.pendingChoices[other] = Object.assign({}, data.choice, { side: other });
+      if (!G.pendingChoices[S.role]) addEntry('shared', 'The other side has chosen.', 'system');
+      resolveTurnIfReady();
+    }
+
     if (data.type === 'narrator-update') {
       applyNarratorResponse(data.raw);
+      if (typeof data.veil === 'number') updateVeil(data.veil);
       G.waitingForNarrator = false;
       G.turn = data.turn + 1;
       const turnEl = document.getElementById('turnNum');
@@ -2462,9 +2569,13 @@ async function submitCustom(side) {
   const inputId = side === 'fantasy' ? 'fantasyCustom' : 'realityCustom';
   const input = document.getElementById(inputId);
   if (!input || !input.value.trim()) return;
+  // A typed action needs a stat to test, picked by the player
+  const statSel = document.getElementById(side + 'CustomStat');
+  if (statSel && !statSel.value) { statSel.focus(); return; }
   const text = input.value.trim();
   input.value = '';
-  await makeChoice(side, text);
+  await makeChoice(side, text, statSel ? statSel.value : null);
+  if (statSel) statSel.value = '';
 }
 
 // ---- NOTES ----
@@ -2605,12 +2716,14 @@ function addEntry(target, text, type) {
     narrator: 'The Narrator',
     action: 'Your Action',
     'note-in': 'Through the Veil',
-    system: 'System'
+    system: 'System',
+    roll: 'The Dice'
   };
 
+  // type can carry a modifier class, e.g. 'roll failure'
   const tag = document.createElement('span');
   tag.className = 'entry-tag';
-  tag.textContent = labels[type] || type;
+  tag.textContent = labels[type.split(' ')[0]] || type;
   entry.appendChild(tag);
 
   const p = document.createElement('p');
@@ -2632,7 +2745,7 @@ function setChoicesEnabled(enabled) {
     if (el) el.disabled = !enabled;
   });
   document.querySelectorAll('.choice-btn').forEach(b => b.disabled = !enabled);
-  ['fantasyCustom','realityCustom','holoInput','phoneInput'].forEach(id => {
+  ['fantasyCustom','realityCustom','fantasyCustomStat','realityCustomStat','holoInput','phoneInput'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.disabled = !enabled;
   });
