@@ -632,12 +632,52 @@ function handleMsg(data) {
   }
 }
 
+// ---- SAVED CHARACTER ----
+// Reads the character made in the main game (saintalia-v2.html saves it).
+// Returns null when there is none or storage is blocked.
+function loadSavedCharacter(side) {
+  try {
+    const key = localStorage.getItem('saintalia.character.' + side + '.current');
+    if (!key) return null;
+    const saved = JSON.parse(localStorage.getItem(key));
+    const c = saved && saved.character;
+    return c && c.role === side ? c : null;
+  } catch (e) {
+    console.warn('Could not read saved character:', e.message);
+    return null;
+  }
+}
+
 // ---- CHAR SETUP ----
 function buildCharSetup() {
   const isF = S.role === 'fantasy';
   const area = document.getElementById('charSetupArea');
   const sideClass = isF ? 'fantasy-side' : 'reality-side';
+
+  // A character from the main game replaces the pickers. Race and job are
+  // matched by id to this scene's own entries so the prompts read the same.
+  const saved = loadSavedCharacter(S.role);
+  if (saved) {
+    const data = CHAR_DATA[S.role];
+    S.myChar = {
+      name: saved.name === 'Unknown' ? '' : saved.name,
+      race: (saved.race && data.races.find(r => r.id === saved.race.id)) || saved.race || null,
+      job: (saved.job && data.jobs.find(j => j.id === saved.job.id)) || saved.job || null,
+      sheet: saved,
+    };
+    area.innerHTML = `
+      <div class="${sideClass} setup-section">
+        <span class="setup-field-label">Your Character</span>
+        <p class="opt-name">${S.myChar.name || 'Nameless'}</p>
+        <p class="lore-text">${S.myChar.race ? S.myChar.race.name : ''}${S.myChar.job ? ' -- ' + S.myChar.job.name : ''}</p>
+      </div>
+    `;
+    document.getElementById('btnReady').disabled = !(S.myChar.race && S.myChar.job);
+    return;
+  }
+
   area.innerHTML = `
+    <div class="status-msg info">No saved character found in this browser. Create one in the main game to bring them here, or choose below.</div>
     <div class="${sideClass} setup-section">
       <span class="setup-field-label">${isF ? 'Your Name' : 'Your Name'}</span>
       <input class="name-input" id="charName" placeholder="leave blank for nameless" maxlength="40" />
@@ -673,7 +713,8 @@ function selectOpt(kind, val, btn, grid) {
 }
 
 function sendReady() {
-  S.myChar.name = document.getElementById('charName').value.trim();
+  const nameInput = document.getElementById('charName');
+  if (nameInput) S.myChar.name = nameInput.value.trim();
   S.groqKey = document.getElementById('groqKeyInput').value.trim();
   S.myReady = true;
   if (S.conn && S.conn.open) {

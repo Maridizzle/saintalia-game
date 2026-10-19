@@ -674,7 +674,31 @@ const S = {
   conn: null,
   connected: false,
   pin: null,
+  character: null,  // saved from the main game, see loadSavedCharacter
 };
+
+// ---- SAVED CHARACTER ----
+// Reads the character made in the main game (saintalia-v2.html saves it).
+// The Artist is the reality side, P2 is the fantasy side.
+// Returns null when there is none or storage is blocked.
+function loadSavedCharacter(side) {
+  try {
+    const key = localStorage.getItem('saintalia.character.' + side + '.current');
+    if (!key) return null;
+    const saved = JSON.parse(localStorage.getItem(key));
+    const c = saved && saved.character;
+    return c && c.role === side ? c : null;
+  } catch (e) {
+    console.warn('Could not read saved character:', e.message);
+    return null;
+  }
+}
+
+function characterLine() {
+  const c = S.character;
+  if (!c) return 'No saved character found in this browser. Create one in the main game to bring them here.';
+  return 'Playing as ' + c.name + (c.race ? ', ' + c.race.name : '') + (c.job ? ' ' + c.job.name : '') + '.';
+}
 
 // ---- ROOM MAP ----
 const ROOMS = {
@@ -909,6 +933,7 @@ function setStatus(html, type) {
 
 function launchGame() {
   document.getElementById('connectScreen').style.display = 'none';
+  S.character = loadSavedCharacter(S.role === 'artist' ? 'reality' : 'fantasy');
 
   if (S.role === 'artist') {
     document.getElementById('artistScreen').classList.add('active');
@@ -921,6 +946,7 @@ function launchGame() {
 
 function initArtistGame() {
   updateRoomIndicator();
+  addEntry('Character', characterLine(), 'system');
   addEntry('The building seals', 'The exit sign you passed three minutes ago is dark. You try the nearest door. The handle moves freely but the door does not open -- not stuck, not locked in any mechanical sense, simply not opening. The entrance hall stretches around you, two pillars flanking the center, the scaffolding from your mural project filling the far corner under its restless canvas. Your phone has signal, and on the other side of it, P2 is watching a grid of lights -- one of them is you. Somewhere in this building are five objects that do not belong, each one wrong in a way that should be obvious once you are looking right at it. Searching a room carefully will reveal if one is here. Touching, taking, or examining one closely will trigger something. Everything else in these rooms -- the furniture, the fixtures, the ordinary clutter -- is just that: ordinary. Type what you do. You can move with simple compass directions (go north, head east, west), or search the room, or interact with something specific.', 'narrator');
   storyHistory.push({ role: 'assistant', content: 'The building has sealed. The artist is in the entrance hall. Five wrong objects exist in the building.' });
   document.getElementById('artistInput').addEventListener('keydown', e => { if (e.key === 'Enter' && !isThinking) artistAct(); });
@@ -930,6 +956,7 @@ function initArtistGame() {
 function initP2Game() {
   initGrid();
   updatePills();
+  addNoteBubble('noteThreadP2', 'sys', characterLine());
   addNoteBubble('noteThreadP2', 'sys', 'You are connected. The Artist starts in the Entrance Hall (' + cellLabel('entrance') + '). Use the map to tell them which way to walk.');
   document.getElementById('p2NoteInput').addEventListener('keydown', e => { if (e.key === 'Enter') sendNote('p2'); });
 }

@@ -1495,6 +1495,23 @@ function refreshPips() {
   });
 }
 
+// ---- SAVED CHARACTER ----
+// The Lockdown and The 15 Questions read this back, so a character made here
+// carries into the later scenes on the same browser. Every save gets its own
+// key and nothing is ever removed; the .current key points at the newest one.
+// Storage can be blocked (private windows, some file:// setups), so failure is
+// logged and the game carries on without it.
+function saveCharacter(character) {
+  try {
+    const savedAt = Date.now();
+    const key = 'saintalia.character.' + character.role + '.' + savedAt;
+    localStorage.setItem(key, JSON.stringify({ version: 1, savedAt, character }));
+    localStorage.setItem('saintalia.character.' + character.role + '.current', key);
+  } catch (e) {
+    console.warn('Character not saved to this browser:', e.message);
+  }
+}
+
 function finalizeCharacter() {
   const sel = S.charSelections;
   const data = S.role === 'fantasy' ? CHAR_DATA.fantasy : CHAR_DATA.reality;
@@ -1514,6 +1531,7 @@ function finalizeCharacter() {
     carry: sel.personality.carry || '',
     fear: sel.personality.fear || ''
   };
+  saveCharacter(S.myCharacter);
   if (S.conn && S.conn.open) {
     S.conn.send({ type: 'character', character: S.myCharacter });
   }
