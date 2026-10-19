@@ -1675,6 +1675,12 @@ const G = {
   pendingChoices: { fantasy: null, reality: null },
   resolving: false,
   turnLog: [],
+  // This player's job ability: armed for the next action, used once per scene
+  abilityArmed: false,
+  abilityUsed: false,
+  veilReadWaiting: false,  // this player asked a Veil Read question this turn
+  // Host only: Veil Read answers the narrator must stay true to
+  veilReadAnswers: [],
 };
 
 // ---- STAT CHECKS ----
@@ -1707,6 +1713,55 @@ function statOptions(side) {
   const stats = (S.myCharacter && S.myCharacter.stats) || {};
   return '<option value="">Stat...</option>' + CHAR_DATA[side].stats
     .map(s => `<option value="${s}">${s} (${stats[s] || 0})</option>`).join('');
+}
+
+// ---- ABILITIES ----
+// Each job ability is used once per scene. Arming it attaches it to the
+// player's next action; the dice still roll and the narrator is told to
+// honor the ability's description that turn.
+// On hold: Battle Cry and Compel wait for the battle encounter system,
+// On Record waits for a note corruption mechanic.
+const ABILITIES_ON_HOLD = ['Battle Cry', 'Compel', 'On Record'];
+const VEIL_READ = 'Veil Read';
+
+function myAbility() {
+  const job = S.myCharacter && S.myCharacter.job;
+  return job && job.ability ? { name: job.ability, desc: job.abilityDesc } : null;
+}
+
+function abilityRow() {
+  const a = myAbility();
+  if (!a) return '';
+  const held = ABILITIES_ON_HOLD.includes(a.name);
+  return `<div class="ability-row">
+    <button class="ability-btn" id="abilityBtn" onclick="toggleAbility()" title="${a.desc.replace(/"/g, '&quot;')}" disabled>⚡ ${a.name}</button>
+    <span class="ability-hint" id="abilityHint">${held ? 'Not active yet.' : 'Once this scene.'}</span>
+    ${a.name === VEIL_READ ? '<input class="ability-question" id="abilityQuestion" maxlength="160" placeholder="Ask a yes or no question about what is coming..." />' : ''}
+  </div>`;
+}
+
+function refreshAbilityButton(choicesEnabled) {
+  const btn = document.getElementById('abilityBtn');
+  const a = myAbility();
+  if (!btn || !a) return;
+  const held = ABILITIES_ON_HOLD.includes(a.name);
+  btn.disabled = held || G.abilityUsed || !choicesEnabled;
+  btn.classList.toggle('armed', G.abilityArmed);
+  const hint = document.getElementById('abilityHint');
+  if (hint) hint.textContent = held ? 'Not active yet.'
+    : G.abilityUsed ? 'Used this scene.'
+    : G.abilityArmed ? (a.name === VEIL_READ ? 'Ask your question, then choose your action.' : 'Your next action carries it.')
+    : 'Once this scene.';
+  const q = document.getElementById('abilityQuestion');
+  if (q) { q.classList.toggle('on', G.abilityArmed); q.disabled = !choicesEnabled; }
+}
+
+function toggleAbility() {
+  if (G.abilityUsed || G.waitingForNarrator) return;
+  G.abilityArmed = !G.abilityArmed;
+  refreshAbilityButton(true);
+  const q = document.getElementById('abilityQuestion');
+  if (q && G.abilityArmed) q.focus();
 }
 
 // Narrator choices arrive as {text, stat} objects, or plain strings from the
@@ -1854,6 +1909,15 @@ function buildGameScreen() {
     .custom-stat{background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.12);color:var(--parchment);font-family:'Cinzel',serif;font-size:0.75rem;padding:0 0.3rem;outline:none;max-width:9rem;}
     .custom-stat:disabled{opacity:0.3;}
     .choice-stat{font-family:'Cinzel',serif;font-size:0.72rem;letter-spacing:0.05em;opacity:0.7;margin-right:0.4rem;white-space:nowrap;}
+    .ability-row{display:flex;flex-wrap:wrap;align-items:center;gap:0.4rem;margin:0.35rem 0 0.2rem;}
+    .ability-btn{font-family:'Cinzel',serif;font-size:0.78rem;letter-spacing:0.08em;padding:0.3rem 0.7rem;border:1px solid var(--gold-light);background:transparent;color:var(--gold-light);cursor:pointer;transition:all 0.2s;}
+    .ability-btn:hover:not(:disabled){background:rgba(var(--gold-rgb),0.1);}
+    .ability-btn.armed{background:rgba(var(--gold-rgb),0.22);box-shadow:0 0 10px rgba(var(--gold-rgb),0.45);}
+    .ability-btn:disabled{opacity:0.3;cursor:not-allowed;}
+    .ability-hint{font-size:0.85rem;font-style:italic;color:var(--bone);opacity:0.75;}
+    .ability-question{display:none;flex-basis:100%;background:rgba(0,0,0,0.4);border:1px solid rgba(var(--gold-rgb),0.35);color:var(--parchment);padding:0.35rem 0.6rem;font-family:'Crimson Pro',serif;font-size:0.98rem;font-style:italic;outline:none;}
+    .ability-question.on{display:block;}
+    .entry.veilread{border-left-color:var(--gold-light);background:rgba(var(--gold-rgb),0.06);color:var(--parchment);}
     .entry.roll{border-left-color:var(--gold-light);color:var(--parchment);}
     .entry.roll.failure{border-left-color:var(--blood-light);}
     .entry.roll.partial{border-left-color:var(--mist-light);}
@@ -1986,6 +2050,7 @@ function buildGameScreen() {
       <div class="choice-area">
         <div class="choice-label">What do you do</div>
         <div id="fantasyChoicesBtns"></div>
+        ${abilityRow()}
         <div class="custom-row">
           <input class="custom-input" id="fantasyCustom" placeholder="Or write your own action..." />
           <select class="custom-stat" id="fantasyCustomStat" disabled>${statOptions('fantasy')}</select>
@@ -2138,6 +2203,7 @@ function buildGameScreen() {
       <div class="choice-area">
         <div class="choice-label">What do you do</div>
         <div id="realityChoicesBtns"></div>
+        ${abilityRow()}
         <div class="custom-row">
           <input class="custom-input" id="realityCustom" placeholder="Or write your own action..." />
           <select class="custom-stat" id="realityCustomStat" disabled>${statOptions('reality')}</select>
@@ -2272,6 +2338,7 @@ ${characterBrief(rC, 'reality')}
 USING THE CHARACTERS: Write each player's half for the character described above, not a generic one. Let their body and appearance show in what they feel and how they move. Let their background, drive, burden, fear and personality shape what they notice, what tempts them and what they dread. Let high stats (4 or 5) show as things they notice or do well, and low stats (0 or 1) as things they miss or struggle with. Offer choices this character in particular would be drawn to or afraid of. Never mention stats, numbers, or ability names in the prose.
 
 RECENT NOTES THROUGH VEIL: ${notes || 'None yet.'}
+VEIL READ ANSWERS ALREADY GIVEN (these are true; the story must keep to them): ${G.veilReadAnswers.map(v => '"' + v.question + '" -> ' + v.answer).join(' | ') || 'None.'}
 VEIL INTEGRITY: ${G.veilStrength}% broken.
 CURRENT TURN: ${G.turn}.
 
@@ -2341,6 +2408,12 @@ function parseNarratorResponse(text) {
     try { result.realityChoices = JSON.parse(rcMatch[1]).choices; } catch(e) {}
   }
 
+  // Veil Read answer, only present on the turn the ability was used
+  const vrMatch = text.match(/VEIL_READ:\s*(YES|NO)\b[\s\-:]*([^\n]*)/i);
+  result.veilRead = vrMatch ? vrMatch[1].toUpperCase() + (vrMatch[2].trim() ? ' -- ' + vrMatch[2].trim() : '') : null;
+  result.fantasyNarrative = result.fantasyNarrative.replace(/VEIL_READ:[^\n]*/gi, '').trim();
+  result.realityNarrative = result.realityNarrative.replace(/VEIL_READ:[^\n]*/gi, '').trim();
+
   return result;
 }
 
@@ -2355,6 +2428,11 @@ function applyNarratorResponse(raw) {
   const myChoices = isF ? parsed.fantasyChoices : parsed.realityChoices;
 
   if (myNarrative) addEntry('private', myNarrative, 'narrator');
+  // Show the answer only on the turn this player asked, never a repeated line
+  if (parsed.veilRead && G.veilReadWaiting) {
+    addEntry('private', parsed.veilRead, 'veilread');
+    G.veilReadWaiting = false;
+  }
 
   const side = isF ? 'fantasy' : 'reality';
   const container = document.getElementById(side + 'ChoicesBtns');
@@ -2434,10 +2512,25 @@ async function beginOpeningScene() {
 // joiner sends its choice and roll to the host as a 'choice' message.
 async function makeChoice(side, choiceText, stat) {
   if (G.waitingForNarrator) return;
+
+  // An armed ability rides on this action. Veil Read needs its question first.
+  let ability = null;
+  if (G.abilityArmed) {
+    const a = myAbility();
+    const qEl = document.getElementById('abilityQuestion');
+    const question = qEl ? qEl.value.trim() : '';
+    if (a.name === VEIL_READ && !question) { qEl.focus(); return; }
+    ability = { name: a.name, desc: a.desc, question: question || null };
+    G.abilityArmed = false;
+    G.abilityUsed = true;
+    if (ability.question) G.veilReadWaiting = true;
+  }
+
   G.waitingForNarrator = true;
   setChoicesEnabled(false);
 
   addEntry('private', choiceText, 'action');
+  if (ability) addEntry('private', 'You use ' + ability.name + (ability.question ? ': "' + ability.question + '"' : '.'), 'system');
   addEntry('shared', `Turn ${G.turn} -- ${S.myCharacter.name} acts`, 'system');
 
   const roll = stat ? rollCheck(stat) : null;
@@ -2451,7 +2544,7 @@ async function makeChoice(side, choiceText, stat) {
   }
 
   G[side + 'History'].push({ role: 'player', text: choiceText });
-  const choice = { side, name: S.myCharacter.name, text: choiceText, roll };
+  const choice = { side, name: S.myCharacter.name, text: choiceText, roll, ability };
 
   if (S.action === 'create') {
     G.pendingChoices[side] = choice;
@@ -2463,7 +2556,13 @@ async function makeChoice(side, choiceText, stat) {
 }
 
 function describeChoice(label, c) {
-  return c ? `${label} (${c.name}) chose: "${c.text}" -- ${describeRoll(c.roll)}` : `${label} did not act this turn.`;
+  if (!c) return `${label} did not act this turn.`;
+  let line = `${label} (${c.name}) chose: "${c.text}" -- ${describeRoll(c.roll)}`;
+  if (c.ability) {
+    line += `\n  ${label} also used their ability ${c.ability.name}: ${c.ability.desc} Honor it this turn, whatever the roll.`;
+    if (c.ability.question) line += ` They asked: "${c.ability.question}"`;
+  }
+  return line;
 }
 
 // Host only. Runs once the host's own choice and the joiner's are both in.
@@ -2483,12 +2582,13 @@ async function resolveTurnIfReady() {
   const r = G.pendingChoices.reality;
   G.pendingChoices = { fantasy: null, reality: null };
   const thisTurn = describeChoice('FANTASY PLAYER', f) + '\n' + describeChoice('REALITY PLAYER', r);
+  const veilReadAsk = [f, r].map(c => c && c.ability).find(a => a && a.name === VEIL_READ && a.question) || null;
 
   const prompt = `This turn:
 ${thisTurn}
 
 Honor every check result. SUCCESS: the action works as intended. PARTIAL: it works, but at a cost or with a complication. FAILURE: it goes wrong in a way that matters. NO CHECK: resolve it as the story demands. Never mention dice, rolls, or numbers in the prose.
-
+${veilReadAsk ? `\nVeil Read was used. After the four sections, add one more line exactly like this: VEIL_READ: YES -- one short sentence, or VEIL_READ: NO -- one short sentence. Answer the question "${veilReadAsk.question}" honestly. That answer becomes true and the story must keep to it.\n` : ''}
 Recent history:
 ${G.turnLog.slice(-2).join('\n\n') || 'None since the opening.'}
 
@@ -2496,6 +2596,8 @@ Continue the scene with consequence for both sides. Nothing is safe. Each player
 
   const raw = S.groqKey ? await callGroq(buildCombinedSystem(), prompt) : buildOfflineCombined();
   G.turnLog.push(`Turn ${G.turn}:\n${thisTurn}\n${raw}`);
+  const answered = parseNarratorResponse(raw).veilRead;
+  if (veilReadAsk && answered) G.veilReadAnswers.push({ question: veilReadAsk.question, answer: answered });
 
   // Veil: the usual 2-7 drift every turn, plus the reality player's check cost.
   // The host owns this number and sends it so both screens agree.
@@ -2717,7 +2819,8 @@ function addEntry(target, text, type) {
     action: 'Your Action',
     'note-in': 'Through the Veil',
     system: 'System',
-    roll: 'The Dice'
+    roll: 'The Dice',
+    veilread: 'The Veil Answers'
   };
 
   // type can carry a modifier class, e.g. 'roll failure'
@@ -2745,6 +2848,7 @@ function setChoicesEnabled(enabled) {
     if (el) el.disabled = !enabled;
   });
   document.querySelectorAll('.choice-btn').forEach(b => b.disabled = !enabled);
+  refreshAbilityButton(enabled);
   ['fantasyCustom','realityCustom','fantasyCustomStat','realityCustomStat','holoInput','phoneInput'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.disabled = !enabled;
