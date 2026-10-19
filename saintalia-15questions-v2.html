@@ -946,7 +946,20 @@ function charDescriptor(side) {
   const c = side===S.role ? S.myChar : S.otherChar;
   if (!c) return 'unknown character';
   const world = side==='fantasy' ? 'in the dying fantasy realm of Saintalia, a world of monsters and old powers' : 'an artist in the modern waking world';
-  return `${c.name||(side==='fantasy'?'P2':'the artist')}, ${world}. Background: ${c.race?c.race.name:''} -- ${c.race?c.race.lore:''} Role: ${c.job?c.job.name:''} -- ${c.job?c.job.desc:''}`;
+  return `${c.name||(side==='fantasy'?'P2':'the artist')}, ${world}. Background: ${c.race?c.race.name:''} -- ${c.race?c.race.lore:''} Role: ${c.job?c.job.name:''} -- ${c.job?c.job.desc:''}${sheetDetails(c.sheet)}`;
+}
+// Appearance and personality from a character made in the main game, or ''
+// when this character was picked here instead
+function sheetDetails(sheet) {
+  if (!sheet) return '';
+  const appearance = Object.entries(sheet.appearance || {}).map(([k,v]) => k+': '+v).join('; ');
+  const personality = Object.entries(sheet.personality || {})
+    .filter(([k]) => !['drive','carry','fear'].includes(k))
+    .map(([k,v]) => k+' '+v).join('; ');
+  return `
+Appearance: ${appearance || 'not described'}
+Driven by: ${sheet.drive || 'unknown'}. Carries: ${sheet.carry || 'an unnamed burden'}. Fears: ${sheet.fear || 'the dark'}
+Personality: ${personality || 'not described'}`;
 }
 function shuffle(arr) { const a=[...arr]; for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
 function drawBank(size) { const av=QUESTIONS.filter(q=>!G.usedIds.includes(q.id)); return shuffle(av).slice(0,Math.min(size,av.length)); }
