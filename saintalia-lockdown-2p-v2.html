@@ -313,7 +313,7 @@
   .grid-card { background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.06); padding: 1rem; }
   .grid-label { font-family: 'Cinzel', serif; font-size: 0.62rem; letter-spacing: 0.25em; text-transform: uppercase; color: var(--bone); opacity: 0.45; margin-bottom: 0.75rem; }
   .grid-canvas {
-    position: relative; width: 100%; height: 300px;
+    position: relative; width: 100%; height: 400px;
     background: rgba(0,0,0,0.5); border: 1px solid rgba(var(--gold-rgb),0.1);
     overflow: hidden;
   }
@@ -349,6 +349,40 @@
   }
   .artist-marker:active { cursor: grabbing; }
   .drag-hint { font-size: 0.78rem; font-style: italic; color: var(--bone); opacity: 0.4; text-align: center; margin-top: 0.5rem; }
+
+  /* P2 map: labelled 4 x 6 room grid inside the canvas, 22px gutter for axis labels */
+  .grid-help { font-size: 0.86rem; line-height: 1.55; color: var(--bone); opacity: 0.8; margin-bottom: 0.75rem; }
+  .grid-help p { margin: 0 0 0.35rem; }
+  .grid-board {
+    position: absolute; top: 22px; left: 22px; right: 22px; bottom: 22px;
+    border: 1px solid rgba(var(--gold-rgb),0.15);
+    background:
+      linear-gradient(to right, rgba(var(--gold-rgb),0.15) 1px, transparent 1px) 0 0 / 25% 100%,
+      linear-gradient(to bottom, rgba(var(--gold-rgb),0.15) 1px, transparent 1px) 0 0 / 100% calc(100% / 6);
+  }
+  .grid-axis {
+    position: absolute; transform: translate(-50%,-50%); pointer-events: none;
+    font-family: 'Cinzel', serif; font-size: 0.68rem; font-weight: 600; color: var(--bone); opacity: 0.75;
+  }
+  .room-door { position: absolute; background: rgba(var(--gold-rgb),0.6); pointer-events: none; }
+  .room-door.h { height: 3px; transform: translateY(-50%); }
+  .room-door.v { width: 3px; transform: translateX(-50%); }
+  .room-cell {
+    position: absolute; transform: translate(-50%,-50%);
+    width: calc(25% - 10px); height: calc(100% / 6 - 10px);
+    border: 1px solid rgba(var(--gold-rgb),0.4); border-radius: 3px; background: rgb(10,6,16);
+    font-family: 'Cinzel', serif; font-size: 9px; line-height: 1.15; color: var(--bone);
+    text-align: center; padding: 2px; overflow: hidden; pointer-events: none;
+    transition: border-color 0.3s, box-shadow 0.3s, background 0.3s;
+  }
+  .room-cell .cell-id { font-weight: 600; opacity: 0.6; margin-right: 3px; }
+  .room-cell.current { border-color: rgba(192,57,43,0.95); background: rgb(60,12,10); box-shadow: 0 0 10px rgba(192,57,43,0.5); }
+  /* the object's point number sits inside its dot so it never spills out of the room */
+  .grid-board .pressure-dot {
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Cinzel', serif; font-size: 9px; font-weight: 600; color: #fff;
+  }
+  .grid-location { font-family: 'Cinzel', serif; font-size: 0.8rem; letter-spacing: 0.08em; color: var(--bone); text-align: center; margin-top: 0.5rem; }
 
   .compass-label {
     position: absolute; font-family: 'Cinzel', serif; font-size: 0.65rem; letter-spacing: 0.2em;
@@ -470,6 +504,14 @@
   body.theme-fantasy .pressure-dot { border-color: rgba(255,62,200,0.7); box-shadow: 0 0 8px rgba(29,158,117,0.5), 0 0 14px rgba(255,62,200,0.3); }
   body.theme-fantasy .flash-item-name { font-family: 'Share Tech Mono', monospace; letter-spacing: 0.08em; }
   body.theme-fantasy .drag-hint { color: #c39bff; }
+  body.theme-fantasy .grid-board { border-color: rgba(255,62,200,0.2); background:
+      linear-gradient(to right, rgba(255,62,200,0.18) 1px, transparent 1px) 0 0 / 25% 100%,
+      linear-gradient(to bottom, rgba(255,62,200,0.18) 1px, transparent 1px) 0 0 / 100% calc(100% / 6); }
+  body.theme-fantasy .room-cell { border-color: rgba(255,62,200,0.45); background: rgb(13,3,24); }
+  body.theme-fantasy .room-cell.current { border-color: rgba(192,57,43,0.95); background: rgb(60,12,10); }
+  body.theme-fantasy .room-door { background: rgba(255,125,221,0.6); }
+  body.theme-fantasy .grid-axis,
+  body.theme-fantasy .grid-location { color: #ff7ddd; }
   /* artist's notes arrive from the waking world — slate hint */
   body.theme-fantasy .note-bubble.from-artist { border-left-color: rgba(110,147,184,0.6); background: rgba(110,147,184,0.07); }
   body.theme-fantasy .conn-badge { border-radius: 4px; text-shadow: 0 0 6px rgba(29,158,117,0.5); }
@@ -574,14 +616,25 @@
     </div>
     <div class="p2-layout">
       <div class="grid-card">
-        <div class="grid-label">Pressure point grid (oriented N/S/E/W) -- the red marker shows where the Artist is right now. Each green dot is a wrong object; its label tells you roughly where it sits relative to the entrance. Dots go dark when found. Use the compass directions in your notes to guide the Artist.</div>
+        <div class="grid-label">Building map -- only you can see this</div>
+        <div class="grid-help">
+          <p>The Artist cannot see this map. You can.</p>
+          <p>The building is a grid. Columns A to D run west to east. Rows 1 to 6 run north to south. North is always up.</p>
+          <p>The red <strong>A</strong> is the Artist. It moves when they move, and their room lights up.</p>
+          <p>Lines between rooms are doorways. No line, no way through.</p>
+          <p>Green dots are wrong objects. Tell the Artist which direction to walk, one room at a time. Once they are in the right room, tell them to search it.</p>
+          <p>When a dot goes dark, that object is found and its transmission appears below. Find all five to open the building.</p>
+        </div>
         <div class="grid-canvas" id="gridCanvas">
           <div class="compass-label compass-n">N</div>
           <div class="compass-label compass-s">S</div>
           <div class="compass-label compass-e">E</div>
           <div class="compass-label compass-w">W</div>
-          <div class="artist-marker" id="artistMarker">A</div>
+          <div class="grid-board" id="gridBoard">
+            <div class="artist-marker" id="artistMarker">A</div>
+          </div>
         </div>
+        <div class="grid-location" id="p2Location"></div>
         <div class="drag-hint">The red marker moves automatically as the Artist navigates. Watch the green dots go dark as objects are found.</div>
       </div>
       <div class="points-status" id="pointsStatus"></div>
@@ -672,28 +725,45 @@ const ROOMS = {
   },
 };
 
-// ---- ROOM GRID POSITIONS ----
-// Building layout reflected as X/Y % positions on the grid
-// Vertical axis: top = north end of building, bottom = entrance
-// Horizontal axis: left = west, right = east
-const ROOM_POSITIONS = {
-  sideCorridor: { x: 30, y: 8  },
-  breakRoom:    { x: 30, y: 22 },
-  stairwell:    { x: 30, y: 36 },
-  landing:      { x: 55, y: 36 },
-  storageRoom:  { x: 75, y: 36 },
-  corridor:     { x: 55, y: 52 },
-  hallwayA:     { x: 55, y: 65 },
-  utilityRoom:  { x: 78, y: 65 },
-  entrance:     { x: 55, y: 80 },
+// ---- ROOM GRID ----
+// P2's map. Columns A-D run west to east, rows 1-6 run north to south.
+// Every exit in ROOMS moves exactly one cell in its compass direction,
+// so the marker always moves the way the Artist was told to walk.
+const GRID_COLS = ['A', 'B', 'C', 'D'];
+const GRID_ROWS = 6;
+const ROOM_CELLS = {
+  sideCorridor: { col: 0, row: 1 },
+  breakRoom:    { col: 0, row: 2 },
+  stairwell:    { col: 1, row: 2 },
+  landing:      { col: 1, row: 3 },
+  storageRoom:  { col: 2, row: 3 },
+  corridor:     { col: 2, row: 4 },
+  hallwayA:     { col: 2, row: 5 },
+  entrance:     { col: 2, row: 6 },
+  utilityRoom:  { col: 3, row: 6 },
 };
+
+function cellLabel(roomId) {
+  const c = ROOM_CELLS[roomId];
+  return GRID_COLS[c.col] + c.row;
+}
+
+// X/Y % of the center of each room's cell on the grid board
+const ROOM_POSITIONS = {};
+Object.entries(ROOM_CELLS).forEach(([id, c]) => {
+  ROOM_POSITIONS[id] = { x: (c.col + 0.5) * 100 / GRID_COLS.length, y: (c.row - 0.5) * 100 / GRID_ROWS };
+});
+
+// Marker and object dot sit side by side under the room name, not on top of it
+const MARKER_OFFSET = { x: -6, y: 4 };
+const DOT_OFFSET    = { x: 6,  y: 4 };
 
 // ---- OBJECT DATA ----
 // gridX/gridY now match their room's position exactly
 const OBJECTS = {
   clock:      { id:'clock',      name:'a clock with no hands but too many faces',              shortName:'clock',      aliases:['clock','clocks','dial','dials'],                       hint:'south end, in the entrance itself',     flashName:'The Flythrough',    pointId:4, gridX: ROOM_POSITIONS.entrance.x,     gridY: ROOM_POSITIONS.entrance.y,     found:false },
   photograph: { id:'photograph', name:'a photograph where every subject has their back turned', shortName:'photograph', aliases:['photograph','photo','photos','picture','pictures','frame'], hint:'central corridor, north of the entrance', flashName:'The Harvest',        pointId:5, gridX: ROOM_POSITIONS.corridor.x,     gridY: ROOM_POSITIONS.corridor.y,     found:false },
-  key:        { id:'key',        name:'a key made of teeth',                                    shortName:'key',        aliases:['key','keys'],                                          hint:'far northeast, near the storage area',  flashName:'Cellular Fusion',   pointId:1, gridX: ROOM_POSITIONS.storageRoom.x,  gridY: ROOM_POSITIONS.storageRoom.y,  found:false },
+  key:        { id:'key',        name:'a key made of teeth',                                    shortName:'key',        aliases:['key','keys'],                                          hint:'north, near the storage area',  flashName:'Cellular Fusion',   pointId:1, gridX: ROOM_POSITIONS.storageRoom.x,  gridY: ROOM_POSITIONS.storageRoom.y,  found:false },
   compass:    { id:'compass',    name:'a compass whose needle points inward',                   shortName:'compass',    aliases:['compass','compasses'],                                 hint:'northwest, in the stairwell',           flashName:'The Neural Network', pointId:3, gridX: ROOM_POSITIONS.stairwell.x,    gridY: ROOM_POSITIONS.stairwell.y,    found:false },
   bottle:     { id:'bottle',     name:'a water bottle that pours nothing',                      shortName:'bottle',     aliases:['bottle','bottles','water bottle','water'],             hint:'far north, west wing',                  flashName:'The Book',          pointId:2, gridX: ROOM_POSITIONS.sideCorridor.x, gridY: ROOM_POSITIONS.sideCorridor.y, found:false },
 };
@@ -860,7 +930,7 @@ function initArtistGame() {
 function initP2Game() {
   initGrid();
   updatePills();
-  addNoteBubble('noteThreadP2', 'sys', 'You are connected. Five green points of light mark wrong objects hidden in the building; the red marker is the Artist, moving in real time. The grid is oriented with N at top, S at bottom, E right, W left. Each point\'s label gives its rough compass position relative to the entrance where the Artist starts. Send notes telling the Artist which direction to head, and what to search for once they arrive -- when they make contact with a wrong object, its dot goes dark and a flash transmission appears below.');
+  addNoteBubble('noteThreadP2', 'sys', 'You are connected. The Artist starts in the Entrance Hall (' + cellLabel('entrance') + '). Use the map to tell them which way to walk.');
   document.getElementById('p2NoteInput').addEventListener('keydown', e => { if (e.key === 'Enter') sendNote('p2'); });
 }
 
@@ -1100,35 +1170,83 @@ function fireFlash(obj) {
 // P2 LOGIC
 // ============================================================
 
+function addGridEl(parent, className, left, top, html) {
+  const el = document.createElement('div');
+  el.className = className;
+  el.style.left = left; el.style.top = top;
+  if (html !== undefined) el.innerHTML = html;
+  parent.appendChild(el);
+  return el;
+}
+
 function initGrid() {
   const canvas = document.getElementById('gridCanvas');
+  const board = document.getElementById('gridBoard');
 
-  // Place object dots at their room's fixed position
-  Object.values(OBJECTS).forEach(obj => {
-    const dot = document.createElement('div');
-    dot.className = 'pressure-dot'; dot.id = 'dot-' + obj.pointId;
-    dot.style.left = obj.gridX + '%'; dot.style.top = obj.gridY + '%';
-    canvas.appendChild(dot);
-    const num = document.createElement('div');
-    num.className = 'pressure-dot-num';
-    num.style.left = obj.gridX + '%'; num.style.top = (obj.gridY + 5) + '%';
-    num.textContent = obj.pointId;
-    canvas.appendChild(num);
+  // Axis labels in the gutter: column letters along the top, row numbers down the left
+  GRID_COLS.forEach((letter, i) => {
+    addGridEl(canvas, 'grid-axis', 'calc(22px + (100% - 44px) * ' + ((i + 0.5) / GRID_COLS.length) + ')', '11px', letter);
   });
+  for (let r = 1; r <= GRID_ROWS; r++) {
+    addGridEl(canvas, 'grid-axis', '11px', 'calc(22px + (100% - 44px) * ' + ((r - 0.5) / GRID_ROWS) + ')', String(r));
+  }
+
+  // Doorways first so the room cells sit on top of them. Each exit is drawn
+  // once, from the room on its west or north side.
+  Object.keys(ROOM_CELLS).forEach(id => {
+    const pos = ROOM_POSITIONS[id];
+    const exits = ROOMS[id].exits;
+    if (exits.E) {
+      const door = addGridEl(board, 'room-door h', pos.x + '%', pos.y + '%');
+      door.style.width = (ROOM_POSITIONS[exits.E].x - pos.x) + '%';
+    }
+    if (exits.S) {
+      const door = addGridEl(board, 'room-door v', pos.x + '%', pos.y + '%');
+      door.style.height = (ROOM_POSITIONS[exits.S].y - pos.y) + '%';
+    }
+  });
+
+  // One labelled cell per room
+  Object.keys(ROOM_CELLS).forEach(id => {
+    const pos = ROOM_POSITIONS[id];
+    const cell = addGridEl(board, 'room-cell', pos.x + '%', pos.y + '%',
+      '<span class="cell-id">' + cellLabel(id) + '</span>' + ROOMS[id].name);
+    cell.id = 'cell-' + id;
+  });
+
+  // Object dots inside their room's cell
+  Object.values(OBJECTS).forEach(obj => {
+    const x = obj.gridX + DOT_OFFSET.x, y = obj.gridY + DOT_OFFSET.y;
+    addGridEl(board, 'pressure-dot', x + '%', y + '%', String(obj.pointId)).id = 'dot-' + obj.pointId;
+  });
+
+  // Keep the marker above the cells and dots
+  board.appendChild(document.getElementById('artistMarker'));
 
   // Place Artist marker at starting room (entrance)
   moveMarker('entrance');
 }
 
-// Move the Artist marker to the correct room position
+// Move the Artist marker into the room's cell and light that cell up
 function moveMarker(roomId) {
   const pos = ROOM_POSITIONS[roomId];
   if (!pos) return;
   const marker = document.getElementById('artistMarker');
   if (!marker) return;
-  marker.style.left = pos.x + '%';
-  marker.style.top = pos.y + '%';
+  marker.style.left = (pos.x + MARKER_OFFSET.x) + '%';
+  marker.style.top = (pos.y + MARKER_OFFSET.y) + '%';
   marker.style.transition = 'left 0.4s ease, top 0.4s ease';
+
+  document.querySelectorAll('.room-cell.current').forEach(c => c.classList.remove('current'));
+  const cell = document.getElementById('cell-' + roomId);
+  if (cell) cell.classList.add('current');
+
+  const loc = document.getElementById('p2Location');
+  if (loc) loc.textContent = 'The Artist is in ' + ROOMS[roomId].name + ' (' + cellLabel(roomId) + ')';
+}
+
+function roomOfObject(objId) {
+  return Object.keys(ROOMS).find(id => ROOMS[id].object === objId);
 }
 
 function updatePills() {
@@ -1138,7 +1256,7 @@ function updatePills() {
     const pill = document.createElement('div');
     pill.className = 'point-pill' + (obj.found ? ' touched' : '');
     pill.id = 'pill-' + obj.pointId;
-    pill.textContent = obj.pointId + '. ' + obj.shortName + ' -- ' + obj.hint;
+    pill.textContent = obj.pointId + '. ' + obj.shortName + ' -- ' + cellLabel(roomOfObject(obj.id)) + ' -- ' + obj.hint;
     container.appendChild(pill);
   });
 }
