@@ -154,6 +154,10 @@ ${objectPresent ? 'WRONG OBJECT IN THIS ROOM: ' + roomObject.name + ' -- present
 OBJECTS FOUND SO FAR: ${foundObjects}
 RECENT NOTES FROM P2: ${recentNotes}
 
+THE ARTIST:
+${characterBrief(S.role === 'reality' ? S.myCharacter : S.otherCharacter, 'reality')}
+Write for this artist, not a generic one. Let their appearance, background, fear and personality color what they notice and feel. High stats (4 or 5) show as things they notice or handle well, low stats (0 or 1) as things they miss or struggle with. Never mention stats or numbers.
+
 RULES:
 - Write vivid unsettling literary horror prose, between 250 and 350 words
 - Always mention available exits naturally, and describe their compass direction clearly (e.g. "a doorway to the north", "an opening to the east")

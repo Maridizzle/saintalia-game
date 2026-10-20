@@ -185,6 +185,29 @@ onMessage('narrate-response', (data) => {
   resolve(data.text);
 });
 
+// Everything the player picked in character creation, as prompt text. Used by
+// the Opening and the Lockdown. drive, carry and fear are stored inside
+// personality too, so they are pulled out once here instead of listed twice.
+// The ability is named so the narrator knows it exists, never to use it.
+function characterBrief(c, side) {
+  if (!c) return 'Unknown.';
+  const data = CHAR_DATA[side];
+  const stats = data.stats.map(s => s + ' ' + ((c.stats && c.stats[s]) || 0) + ' (' + data.statDescs[s] + ')').join('; ');
+  const appearance = Object.entries(c.appearance || {}).map(([k, v]) => k + ': ' + v).join('; ');
+  const personality = Object.entries(c.personality || {})
+    .filter(([k]) => !['drive', 'carry', 'fear'].includes(k))
+    .map(([k, v]) => k + ' ' + v).join('; ');
+  return `Name: ${c.name}
+Background: ${c.race ? c.race.name + ' -- ' + c.race.lore : 'unknown'}
+Role: ${c.job ? c.job.name : 'unknown'}${c.job && c.job.ability ? '. Ability: ' + c.job.ability + ' -- ' + c.job.abilityDesc + ' (only the player can trigger this; never use it for them)' : ''}
+Stats, 0 weak to 5 exceptional: ${stats}
+Appearance: ${appearance || 'not described'}
+Driven by: ${c.drive || 'unknown'}
+Carries: ${c.carry || 'an unnamed burden'}
+Fears: ${c.fear || 'the dark'}
+Personality: ${personality || 'not described'}`;
+}
+
 function buildCombinedSystem() {
   const fC = S.role === 'fantasy' ? S.myCharacter : S.otherCharacter;
   const rC = S.role === 'reality' ? S.myCharacter : S.otherCharacter;
@@ -202,17 +225,13 @@ WORLD RULES, never break these:
 - Neither player can hang up. The connection was an accident. Nothing planned it. There is no destiny.
 - Never name or explain what is behind the veil, and never name any organization. Never describe the mural to the fantasy player.
 
-FANTASY PLAYER: ${fC.name}, a ${fC.race ? fC.race.name : 'creature'} ${fC.job ? fC.job.name : ''}.
-Stats: ${Object.entries(fC.stats || {}).map(([k,v]) => k+':'+v).join(', ')}.
-Carries: ${fC.carry || 'an unnamed burden'}.
-Fears: ${fC.fear || 'the dark'}.
-Personality: ${Object.entries(fC.personality || {}).map(([k,v]) => v).join('. ')}.
+FANTASY PLAYER:
+${characterBrief(fC, 'fantasy')}
 
-REALITY PLAYER: ${rC.name}, an artist (${rC.race ? rC.race.name : ''}, ${rC.job ? rC.job.name : ''}).
-Stats: ${Object.entries(rC.stats || {}).map(([k,v]) => k+':'+v).join(', ')}.
-Carries: ${rC.carry || 'an unnamed burden'}.
-Fears: ${rC.fear || 'the dark'}.
-Personality: ${Object.entries(rC.personality || {}).map(([k,v]) => v).join('. ')}.
+REALITY PLAYER (an artist):
+${characterBrief(rC, 'reality')}
+
+USING THE CHARACTERS: Write each player's half for the character described above, not a generic one. Let their body and appearance show in what they feel and how they move. Let their background, drive, burden, fear and personality shape what they notice, what tempts them and what they dread. Let high stats (4 or 5) show as things they notice or do well, and low stats (0 or 1) as things they miss or struggle with. Offer choices this character in particular would be drawn to or afraid of. Never mention stats, numbers, or ability names in the prose.
 
 RECENT NOTES THROUGH VEIL: ${notes || 'None yet.'}
 VEIL INTEGRITY: ${G.veilStrength}% broken.
