@@ -209,7 +209,13 @@ async function dmFireFlash(flash, objectId) {
   var system = 'You are narrating a flash vision in The Dream scene of Saintalia. ' +
     'Both players are inside a shared dream. The artist just placed an object on the wall. ' +
     'Expand this vision into vivid, literary horror-fantasy prose, 200 to 350 words. ' +
-    'Do not break character. Do not explain mechanics. The vision is overwhelming and involuntary.';
+    'Do not break character. Do not explain mechanics. The vision is overwhelming and involuntary.' +
+    // Both players receive this vision, so the narrator knows both of them
+    '\n\nTHE ARTIST:\n' + characterBrief(S.role === 'reality' ? S.myCharacter : S.otherCharacter, 'reality') +
+    '\n\nTHE PLAYER IN SAINTALIA:\n' + characterBrief(S.role === 'fantasy' ? S.myCharacter : S.otherCharacter, 'fantasy') +
+    '\n\nLet the vision land on these two people in particular: their bodies, their fears, what they carry. ' +
+    'The guardrail decides what the vision shows; the characters only color how it is felt. ' +
+    'Never mention stats, numbers, or ability names.';
   var userMsg = 'VISION GUARDRAIL: ' + flash.guardrail +
     '\n\nExpand this into full prose. Stay faithful to the guardrail but make it vivid and specific.';
 
