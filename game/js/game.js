@@ -451,12 +451,15 @@ async function beginOpeningScene() {
   setThinking(true);
 
   if (isHost) {
-    let raw;
-    if (S.groqKey) {
+    // Was gated on S.groqKey alone, so with server narration (no key typed)
+    // the Opening never asked the narrator at all.
+    let raw = null;
+    if (narrationAvailable()) {
       raw = await callGroq(buildCombinedSystem(), buildCombinedOpening());
-    } else {
-      raw = buildOfflineCombined();
     }
+    // No narrator, or it failed: the written offline opening is exactly what
+    // this moment needs, and it plays once.
+    if (!isUsableReply(raw)) raw = buildOfflineCombined();
 
     if (S.conn && S.conn.open) {
       S.conn.send({ type: 'narrator-update', raw, turn: G.turn });
@@ -543,11 +546,29 @@ async function resolveTurnIfReady() {
 
   const prompt = `The fantasy player (${fC.name}) chose: "${f}"\nThe reality player (${rC.name}) chose: "${r}"\n\nRecent history:\n${recentHistory}\n\nContinue the scene with consequence for both sides. Nothing is safe. Each player only perceives their own side of what just happened. Produce all four sections.`;
 
-  let raw;
-  if (S.groqKey) {
-    raw = await callGroq(buildCombinedSystem(), prompt);
-  } else {
-    raw = buildOfflineCombined();
+  // No narrator at all: only the opening plays. The offline text IS the
+  // opening and used to repeat every turn. Both players are told plainly and
+  // stay locked.
+  if (!narrationAvailable()) {
+    const text = 'The story cannot go past the opening without AI narration. Start a new game with a Groq key to keep playing.';
+    addEntry('shared', text, 'system');
+    if (S.conn && S.conn.open) S.conn.send({ type: 'narrator-offline', text });
+    setThinking(false);
+    G.waitingForNarrator = false;
+    return;
+  }
+
+  const raw = await callGroq(buildCombinedSystem(), prompt);
+
+  // Failure keeps both choices exactly as they were (pendingChoices is only
+  // cleared on success) and the turn and veil have not moved, so Try again
+  // simply resolves the same turn.
+  if (!isUsableReply(raw)) {
+    G.waitingForNarrator = false;
+    setThinking(false);
+    showRetry(narratorError);
+    if (S.conn && S.conn.open) S.conn.send({ type: 'narrator-error' });
+    return;
   }
 
   if (S.conn && S.conn.open) {
@@ -562,6 +583,34 @@ async function resolveTurnIfReady() {
   G.waitingForNarrator = false;
 
   advanceTurn();
+}
+
+// Host only: the narrator failed this turn. Show why, with a Try again button.
+function showRetry(reason) {
+  const feed = document.getElementById('sharedFeed');
+  if (!feed) return;
+  const old = document.getElementById('retryBox');
+  if (old) old.remove();
+  const box = document.createElement('div');
+  box.className = 'entry system';
+  box.id = 'retryBox';
+  const p = document.createElement('p');
+  p.textContent = 'The narrator did not answer. ' + reason + ' Both choices are kept.';
+  const btn = document.createElement('button');
+  btn.className = 'btn-secondary';
+  btn.textContent = 'Try again';
+  btn.onclick = retryTurn;
+  box.appendChild(p);
+  box.appendChild(btn);
+  feed.appendChild(box);
+  feed.scrollTop = feed.scrollHeight;
+}
+
+function retryTurn() {
+  if (G.waitingForNarrator) return;
+  const box = document.getElementById('retryBox');
+  if (box) box.remove();
+  resolveTurnIfReady();
 }
 
 // Appends one resolved turn to G.turnLog. Both sides call this so a joiner
@@ -629,7 +678,9 @@ onMessage('narrator-update', forScene('opening', (data) => {
   // PHASE 3d. Clear the pair so the next turn can accept fresh choices.
   G.pendingChoices = { fantasy: null, reality: null };
 
-  G.turn = data.turn + 1;
+  // The host does not advance its turn after the opening, only after real
+  // turns, so the opening must not push the joiner one ahead.
+  G.turn = G.openingDone ? data.turn + 1 : data.turn;
   const turnEl = document.getElementById('turnNum');
   if (turnEl) turnEl.textContent = G.turn;
 
@@ -661,6 +712,18 @@ onMessage('mural-advance', forScene('opening', (data) => {
   // the fantasy JOINER never blinked and never lost the energy, which is a
   // straight desync of a mechanic the vault calls cumulative and physical.
   if (S.role === 'fantasy') veilBlink();
+}));
+
+// The host's narrator call failed; the host has a Try again button.
+onMessage('narrator-error', forScene('opening', () => {
+  setThinking(false);
+  addEntry('shared', 'The veil is silent. Waiting for the other side to try again.', 'system');
+}));
+
+// No narrator anywhere, so the story stops after the opening.
+onMessage('narrator-offline', forScene('opening', (data) => {
+  setThinking(false);
+  addEntry('shared', data.text, 'system');
 }));
 
 onMessage('veil-update', forScene('opening', (data) => updateVeil(data.strength)));

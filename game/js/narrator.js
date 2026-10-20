@@ -35,6 +35,14 @@ const GROQ_MODEL = 'llama-3.3-70b-versatile';
 // hits the server and no player needs a Groq key.
 let _serverNarration = false;
 
+// Why the last narrator call failed, shown to the host next to Try again.
+let narratorError = '';
+
+// True when some narrator can be asked: the server, or this player's own key.
+function narrationAvailable() {
+  return _serverNarration || !!S.groqKey;
+}
+
 async function probeServerNarration() {
   try {
     var r = await fetch('/api/narrate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
@@ -67,9 +75,11 @@ async function callGroqServer(system, userMsg, maxTokens) {
       body: JSON.stringify({ system: system || null, userMsg: userMsg, maxTokens: maxTokens || 800, room: room })
     });
     var data = await resp.json();
+    if (!data.text) narratorError = 'The server narrator did not answer' + (data.error ? ' (' + data.error + ').' : '.');
     return data.text || null;
   } catch (e) {
     console.warn('[saintalia] server narrate failed:', e);
+    narratorError = 'The server narrator could not be reached.';
     return null;
   }
 }
@@ -92,19 +102,34 @@ async function callGroqDirect(system, userMsg, maxTokens) {
       })
     });
     const data = await resp.json();
-    if (data.error) { console.warn('[saintalia] Groq error:', data.error.message); return null; }
+    if (data.error) {
+      console.warn('[saintalia] Groq error:', data.error.message);
+      narratorError = 'Groq: ' + (data.error.message || 'unknown error');
+      return null;
+    }
     return data.choices[0].message.content;
   } catch(e) {
     console.warn('[saintalia] Groq fetch failed:', e);
+    narratorError = 'Groq could not be reached.';
     return null;
   }
 }
 
-// The Opening's call. Unchanged in behavior: falls back to the four-block
-// offline text whenever the raw call comes back empty.
+// The Opening's call. Returns the narrator's text, or null on failure with the
+// reason in narratorError. It used to return the offline opening on failure,
+// which replayed the opening mid-game; callers now decide what failure means.
 async function callGroq(system, userMsg) {
-  const out = await callGroqRaw(system, userMsg, 800);
-  return out === null ? buildOfflineCombined() : out;
+  return callGroqRaw(system, userMsg, 800);
+}
+
+// A reply is only usable if both sides got narration and choices. Anything
+// else counts as a failure so garbled text never reaches the players.
+function isUsableReply(raw) {
+  if (!raw) return false;
+  const p = parseNarratorResponse(raw);
+  const usable = p.fantasyNarrative && p.realityNarrative && p.fantasyChoices.length && p.realityChoices.length;
+  if (!usable) narratorError = 'The narrator\'s reply could not be read.';
+  return !!usable;
 }
 
 // ---- HOST PROXY (PHASE 5, answers PLAN.md open question 5) ----
