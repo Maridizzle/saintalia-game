@@ -1681,6 +1681,8 @@ const G = {
   veilReadWaiting: false,  // this player asked a Veil Read question this turn
   // Host only: Veil Read answers the narrator must stay true to
   veilReadAnswers: [],
+  // Host only: a turn whose narrator call failed, kept for Try again
+  failedTurn: null,
 };
 
 // ---- STAT CHECKS ----
@@ -2274,6 +2276,20 @@ function showCorruptedImage() {
 }
 
 // ---- GROQ NARRATOR ----
+// callGroq returns the narrator's text, or null on failure with the reason in
+// narratorError. It used to return the offline opening on failure, which
+// replayed the opening mid-game.
+let narratorError = '';
+
+// A reply is only usable if both sides got narration and choices
+function isUsableReply(raw) {
+  if (!raw) return false;
+  const p = parseNarratorResponse(raw);
+  const usable = p.fantasyNarrative && p.realityNarrative && p.fantasyChoices.length && p.realityChoices.length;
+  if (!usable) narratorError = 'The narrator\'s reply could not be read.';
+  return !!usable;
+}
+
 async function callGroq(system, userMsg) {
   try {
     const resp = await fetch(GROQ_URL, {
@@ -2293,10 +2309,11 @@ async function callGroq(system, userMsg) {
       })
     });
     const data = await resp.json();
-    if (data.error) return buildOfflineCombined();
+    if (data.error) { narratorError = data.error.message || 'Groq returned an error.'; return null; }
     return data.choices[0].message.content;
   } catch(e) {
-    return buildOfflineCombined();
+    narratorError = e.message || 'The narrator could not be reached.';
+    return null;
   }
 }
 
@@ -2486,9 +2503,9 @@ async function beginOpeningScene() {
     let raw;
     if (S.groqKey) {
       raw = await callGroq(buildCombinedSystem(), buildCombinedOpening());
-    } else {
-      raw = buildOfflineCombined();
     }
+    // No key, or the AI failed: the written offline opening is exactly what this moment needs
+    if (!isUsableReply(raw)) raw = buildOfflineCombined();
 
     if (S.conn && S.conn.open) {
       S.conn.send({ type: 'narrator-update', raw, turn: G.turn });
@@ -2606,6 +2623,17 @@ Continue the scene with consequence for both sides. Nothing is safe. Each player
   }
 
   const raw = await callGroq(buildCombinedSystem(), prompt);
+  if (!isUsableReply(raw)) {
+    // Keep both choices, rolls and abilities exactly as they were. Nothing
+    // has been charged for the veil yet and energy was paid at the roll,
+    // so a retry costs nothing twice.
+    G.failedTurn = { fantasy: f, reality: r };
+    G.resolving = false;
+    setThinking(false);
+    showRetry(narratorError);
+    if (S.conn && S.conn.open) S.conn.send({ type: 'narrator-error' });
+    return;
+  }
   G.turnLog.push(`Turn ${G.turn}:\n${thisTurn}\n${raw}`);
   const answered = parseNarratorResponse(raw).veilRead;
   if (veilReadAsk && answered) G.veilReadAnswers.push({ question: veilReadAsk.question, answer: answered });
@@ -2639,6 +2667,36 @@ Continue the scene with consequence for both sides. Nothing is safe. Each player
     }
     if (S.role === 'fantasy') veilBlink();
   }
+}
+
+// Host only: the narrator failed this turn. Show why, with a Try again button.
+function showRetry(reason) {
+  const feed = document.getElementById('sharedFeed');
+  if (!feed) return;
+  const old = document.getElementById('retryBox');
+  if (old) old.remove();
+  const box = document.createElement('div');
+  box.className = 'entry system';
+  box.id = 'retryBox';
+  const p = document.createElement('p');
+  p.textContent = 'The narrator did not answer: ' + reason + ' Your choices and rolls are kept.';
+  const btn = document.createElement('button');
+  btn.className = 'ability-btn';
+  btn.textContent = 'Try again';
+  btn.onclick = retryTurn;
+  box.appendChild(p);
+  box.appendChild(btn);
+  feed.appendChild(box);
+  feed.scrollTop = feed.scrollHeight;
+}
+
+function retryTurn() {
+  if (!G.failedTurn || G.resolving) return;
+  G.pendingChoices = G.failedTurn;
+  G.failedTurn = null;
+  const box = document.getElementById('retryBox');
+  if (box) box.remove();
+  resolveTurnIfReady();
 }
 
 // ---- GAME MESSAGE HANDLER ----
@@ -2675,6 +2733,11 @@ function setupGameMessageHandler() {
       addEntry('shared', 'The mural shifts.', 'system');
       // Same veil slip a fantasy host gets: the screen blinks and energy drains
       if (S.role === 'fantasy') veilBlink();
+    }
+
+    if (data.type === 'narrator-error') {
+      setThinking(false);
+      addEntry('shared', 'The veil is silent. Waiting for the other side to try again.', 'system');
     }
 
     if (data.type === 'narrator-offline') {
