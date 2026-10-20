@@ -54,6 +54,10 @@ const G = {
   // narrated every turn from its own choice alone.
   pendingChoices: { fantasy: null, reality: null },
 
+  // Each side's stat check for the pending choice (see rollCheck), or null
+  // for a choice with no stat. Kept and cleared alongside pendingChoices.
+  pendingRolls: { fantasy: null, reality: null },
+
   // NARRATOR MEMORY. One entry per resolved turn, in play order:
   // { turn, fantasy, reality, narrator }. Entry zero is the opening beat,
   // logged as turn 0 with no choices. resolveTurnIfReady reads the tail so the
@@ -70,6 +74,47 @@ const G = {
   veilKnowledge: 0,
   voidCorruption: 0,
 };
+
+// ---- STAT CHECKS ----
+// Maridizzle's rule: d20 + (stat x 2). 15 or more succeeds, 10 to 14 is a
+// partial success with a cost, under 10 fails. A natural 1 always fails and a
+// natural 20 always succeeds. Stats run 0 to 5, so a stat-0 character succeeds
+// about 30% of the time and a stat-5 character about 80%.
+// Costs: fantasy failure loses 8 energy (partial 4); reality failure adds
+// 2-7 veil (partial 1-3) on top of the usual per-turn drift.
+const CHECK_SUCCESS = 15;
+const CHECK_PARTIAL = 10;
+const CHECK_STAT_MULT = 2;
+const CHECK_ENERGY_COST = { failure: 8, partial: 4 };
+const CHECK_VEIL_COST = { failure: [2, 7], partial: [1, 3] };
+
+function randInt(min, max) { return min + Math.floor(Math.random() * (max - min + 1)); }
+
+function rollCheck(stat) {
+  const die = randInt(1, 20);
+  const value = (S.myCharacter && S.myCharacter.stats && S.myCharacter.stats[stat]) || 0;
+  const bonus = value * CHECK_STAT_MULT;
+  const total = die + bonus;
+  const result = die === 1 ? 'failure'
+    : die === 20 ? 'success'
+    : total >= CHECK_SUCCESS ? 'success'
+    : total >= CHECK_PARTIAL ? 'partial' : 'failure';
+  return { stat, die, value, bonus, total, result };
+}
+
+function describeRoll(roll) {
+  if (!roll) return 'no check';
+  const natural = roll.die === 1 ? ', natural 1' : roll.die === 20 ? ', natural 20' : '';
+  return roll.stat + ' check: ' + roll.result.toUpperCase() +
+    ' (rolled ' + roll.die + ' + ' + roll.value + 'x2 = ' + roll.total + natural + ')';
+}
+
+// Choice dropdown for typed actions: every stat for this side with the player's value
+function statOptions(side) {
+  const stats = (S.myCharacter && S.myCharacter.stats) || {};
+  return '<option value="">Stat...</option>' + CHAR_DATA[side].stats
+    .map(s => `<option value="${s}">${s} (${stats[s] || 0})</option>`).join('');
+}
 
 // The captions below predate the established mural progression in the vault
 // (fin in pond, animal with a third leg, coiled presence in the cave mouth,
@@ -177,6 +222,7 @@ function buildGameScreen(root) {
         <div id="fantasyChoicesBtns"></div>
         <div class="custom-row">
           <input class="custom-input" id="fantasyCustom" placeholder="Or write your own action..." />
+          <select class="custom-stat" id="fantasyCustomStat" disabled>${statOptions('fantasy')}</select>
           <button class="custom-btn" id="fantasyCustomBtn" onclick="submitCustom('fantasy')" disabled>Act</button>
         </div>
         <button class="btn-primary opening-exit" id="openingExit" style="display:none" onclick="bridgeContinue(this)">The building seals</button>
@@ -330,6 +376,7 @@ function buildGameScreen(root) {
         <div id="realityChoicesBtns"></div>
         <div class="custom-row">
           <input class="custom-input" id="realityCustom" placeholder="Or write your own action..." />
+          <select class="custom-stat" id="realityCustomStat" disabled>${statOptions('reality')}</select>
           <button class="custom-btn" id="realityCustomBtn" onclick="submitCustom('reality')" disabled>Act</button>
         </div>
         <button class="btn-primary opening-exit" id="openingExit" style="display:none" onclick="bridgeContinue(this)">The building seals</button>
@@ -488,19 +535,32 @@ async function beginOpeningScene() {
 //
 // Now both sides record their choice, send it over the wire, and the HOST
 // resolves the turn once both have arrived.
-async function makeChoice(side, choiceText) {
+async function makeChoice(side, choiceText, stat) {
   if (G.waitingForNarrator) return;
   if (G.pendingChoices[side]) return; // already chose this turn
 
   addEntry('private', choiceText, 'action');
   addEntry('shared', `Turn ${G.turn} -- ${S.myCharacter.name} acts`, 'system');
 
+  // The roll happens here, on the chooser's own screen, and travels with the
+  // choice. Energy is the fantasy player's own, so that cost is paid here.
+  const roll = stat ? rollCheck(stat) : null;
+  if (roll) {
+    addEntry('private', describeRoll(roll), 'roll ' + roll.result);
+    if (side === 'fantasy' && CHECK_ENERGY_COST[roll.result]) {
+      G.energy = Math.max(0, G.energy - CHECK_ENERGY_COST[roll.result]);
+      updateEnergyDisplay();
+      broadcastEnergy();
+    }
+  }
+
   G[side + 'History'].push({ role: 'player', text: choiceText });
   G.pendingChoices[side] = choiceText;
+  G.pendingRolls[side] = roll;
   setChoicesEnabled(false);
 
   if (S.conn && S.conn.open) {
-    S.conn.send({ type: 'player-choice', side, text: choiceText, turn: G.turn });
+    S.conn.send({ type: 'player-choice', side, text: choiceText, roll, turn: G.turn });
   }
 
   if (typeof scheduleSnapshot === 'function') scheduleSnapshot();
@@ -544,7 +604,10 @@ async function resolveTurnIfReady() {
     })
     .join('\n\n');
 
-  const prompt = `The fantasy player (${fC.name}) chose: "${f}"\nThe reality player (${rC.name}) chose: "${r}"\n\nRecent history:\n${recentHistory}\n\nContinue the scene with consequence for both sides. Nothing is safe. Each player only perceives their own side of what just happened. Produce all four sections.`;
+  const fRoll = G.pendingRolls.fantasy;
+  const rRoll = G.pendingRolls.reality;
+
+  const prompt = `The fantasy player (${fC.name}) chose: "${f}" -- ${describeRoll(fRoll)}\nThe reality player (${rC.name}) chose: "${r}" -- ${describeRoll(rRoll)}\n\nHonor every check result. SUCCESS: the action works as intended. PARTIAL: it works, but at a cost or with a complication. FAILURE: it goes wrong in a way that matters. NO CHECK: resolve it as the story demands. Never mention dice, rolls, or numbers in the prose.\n\nRecent history:\n${recentHistory}\n\nContinue the scene with consequence for both sides. Nothing is safe. Each player only perceives their own side of what just happened. Produce all four sections.`;
 
   // No narrator at all: only the opening plays. The offline text IS the
   // opening and used to repeat every turn. Both players are told plainly and
@@ -580,9 +643,12 @@ async function resolveTurnIfReady() {
   logTurn(G.turn, f, r, raw);
 
   G.pendingChoices = { fantasy: null, reality: null };
+  G.pendingRolls = { fantasy: null, reality: null };
   G.waitingForNarrator = false;
 
-  advanceTurn();
+  // The reality player's check cost lands on the veil, on top of the drift
+  const veilCost = rRoll && CHECK_VEIL_COST[rRoll.result] ? randInt(...CHECK_VEIL_COST[rRoll.result]) : 0;
+  advanceTurn(veilCost);
 }
 
 // Host only: the narrator failed this turn. Show why, with a Try again button.
@@ -625,12 +691,12 @@ function logTurn(turn, fantasy, reality, narrator) {
 
 // Host only. Turn counter, veil drift and mural, all broadcast so the other
 // screen actually matches this one.
-function advanceTurn() {
+function advanceTurn(extraVeil) {
   G.turn++;
   const turnEl = document.getElementById('turnNum');
   if (turnEl) turnEl.textContent = G.turn;
 
-  G.veilStrength = Math.min(100, G.veilStrength + Math.floor(Math.random() * 6) + 2);
+  G.veilStrength = Math.min(100, G.veilStrength + Math.floor(Math.random() * 6) + 2 + (extraVeil || 0));
   updateVeil(G.veilStrength);
   broadcastVeil();
 
@@ -677,6 +743,7 @@ onMessage('narrator-update', forScene('opening', (data) => {
 
   // PHASE 3d. Clear the pair so the next turn can accept fresh choices.
   G.pendingChoices = { fantasy: null, reality: null };
+  G.pendingRolls = { fantasy: null, reality: null };
 
   // The host does not advance its turn after the opening, only after real
   // turns, so the opening must not push the joiner one ahead.
@@ -695,6 +762,7 @@ onMessage('narrator-update', forScene('opening', (data) => {
 // PHASE 3d. The other player's choice, which previously went nowhere.
 onMessage('player-choice', forScene('opening', (data) => {
   G.pendingChoices[data.side] = data.text;
+  G.pendingRolls[data.side] = data.roll || null;
 
   const hist = G[data.side + 'History'];
   if (hist) hist.push({ role: 'player', text: data.text });
@@ -745,9 +813,13 @@ async function submitCustom(side) {
   const inputId = side === 'fantasy' ? 'fantasyCustom' : 'realityCustom';
   const input = document.getElementById(inputId);
   if (!input || !input.value.trim()) return;
+  // A typed action needs a stat to test, picked by the player
+  const statSel = document.getElementById(side + 'CustomStat');
+  if (statSel && !statSel.value) { statSel.focus(); return; }
   const text = input.value.trim();
   input.value = '';
-  await makeChoice(side, text);
+  await makeChoice(side, text, statSel ? statSel.value : null);
+  if (statSel) statSel.value = '';
 }
 
 // ---- NOTES ----
@@ -897,12 +969,14 @@ function addEntry(target, text, type) {
     narrator: 'The Narrator',
     action: 'Your Action',
     'note-in': 'Through the Veil',
-    system: 'System'
+    system: 'System',
+    roll: 'The Dice'
   };
 
+  // type can carry a modifier class, e.g. 'roll failure'
   const tag = document.createElement('span');
   tag.className = 'entry-tag';
-  tag.textContent = labels[type] || type;
+  tag.textContent = labels[type.split(' ')[0]] || type;
   entry.appendChild(tag);
 
   const p = document.createElement('p');
@@ -958,6 +1032,7 @@ function returnToCharacter() {
   G.fantasyChoices = [];
   G.realityChoices = [];
   G.pendingChoices = { fantasy: null, reality: null };
+  G.pendingRolls = { fantasy: null, reality: null };
   G.turnLog = [];
   G.veilDeath = 0;
   G.hopelessness = 0;
@@ -1008,7 +1083,7 @@ function setChoicesEnabled(enabled) {
     if (el) el.disabled = !enabled;
   });
   document.querySelectorAll('.choice-btn').forEach(b => b.disabled = !enabled);
-  ['fantasyCustom','realityCustom','holoInput','phoneInput'].forEach(id => {
+  ['fantasyCustom','realityCustom','fantasyCustomStat','realityCustomStat','holoInput','phoneInput'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.disabled = !enabled;
   });

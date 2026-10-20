@@ -49,6 +49,7 @@ function collectSnapshot() {
       fantasyChoices: G.fantasyChoices,
       realityChoices: G.realityChoices,
       pendingChoices: G.pendingChoices,
+      pendingRolls: G.pendingRolls,
       turnLog: G.turnLog,
       veilDeath: G.veilDeath,
       hopelessness: G.hopelessness,
@@ -162,6 +163,7 @@ function restoreGamePhase(snapshot) {
   G.fantasyChoices = sg.fantasyChoices || [];
   G.realityChoices = sg.realityChoices || [];
   G.pendingChoices = sg.pendingChoices || { fantasy: null, reality: null };
+  G.pendingRolls = sg.pendingRolls || { fantasy: null, reality: null };
   G.turnLog = sg.turnLog || [];
   G.veilDeath = sg.veilDeath || 0;
   G.hopelessness = sg.hopelessness || 0;
@@ -233,7 +235,8 @@ function splitSaveData() {
     realityHistory: snap.G.realityHistory,
     fantasyChoices: snap.G.fantasyChoices,
     realityChoices: snap.G.realityChoices,
-    pendingChoices: snap.G.pendingChoices
+    pendingChoices: snap.G.pendingChoices,
+    pendingRolls: snap.G.pendingRolls
   };
 
   return { shared: shared, private: priv };
@@ -409,7 +412,8 @@ function rebuildSnapshot(shared, priv) {
       openingDone: shared.openingDone || false,
       fantasyChoices: priv.fantasyChoices || [],
       realityChoices: priv.realityChoices || [],
-      pendingChoices: priv.pendingChoices || { fantasy: null, reality: null }
+      pendingChoices: priv.pendingChoices || { fantasy: null, reality: null },
+      pendingRolls: priv.pendingRolls || { fantasy: null, reality: null }
     },
     sceneOrder: shared.sceneOrder || [],
     currentScene: shared.currentScene,

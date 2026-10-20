@@ -883,6 +883,10 @@ body.screen-char .custom-row { display:flex; gap:0.5rem; margin-top:0.3rem; }
 .entry.action { border-left-color:var(--mist); color:var(--bone); }
 .entry.note-in { border-left-color:#8b1a1a; background:rgba(139,26,26,0.08); color:var(--parchment); font-style:italic; }
 .entry.system { border-left-color:rgba(255,255,255,0.15); color:var(--bone); opacity:0.6; }
+/* stat check results: gold for success, mist for partial, blood for failure */
+.entry.roll { border-left-color:var(--gold-light); color:var(--parchment); }
+.entry.roll.partial { border-left-color:var(--mist-light); }
+.entry.roll.failure { border-left-color:var(--blood-light); }
 .entry-tag { font-family:'Cinzel',serif; font-size:clamp(0.48rem,0.7vw,0.58rem); letter-spacing:0.2em; text-transform:uppercase; opacity:0.5; display:block; margin-bottom:0.15rem; }
 
 /* HOLOGRAPHIC TERMINAL (fantasy) */
@@ -940,6 +944,9 @@ body.screen-game .custom-row { display:flex; gap:0.4rem; margin-top:0.4rem; }
 .fantasy-side .custom-btn { color:var(--gold-light); border-color:rgba(var(--gold-rgb),0.3); }
 .reality-side .custom-btn { color:var(--mist-light); border-color:rgba(var(--mist-rgb),0.3); }
 .custom-btn:disabled { opacity:0.3; cursor:not-allowed; }
+.custom-stat { background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.12); color:var(--parchment); font-family:'Cinzel',serif; font-size:0.75rem; padding:0 0.3rem; outline:none; max-width:9rem; }
+.custom-stat:disabled { opacity:0.3; }
+.choice-stat { font-family:'Cinzel',serif; font-size:0.72rem; letter-spacing:0.05em; opacity:0.7; margin-right:0.4rem; white-space:nowrap; }
 
 /* THINKING */
 .thinking { display:none; font-family:'Cinzel',serif; font-size:1.05rem; letter-spacing:0.2em; text-align:center; padding:0.4rem; animation:flick 1.5s ease-in-out infinite; }

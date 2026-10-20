@@ -241,9 +241,11 @@ CURRENT TURN: ${G.turn}.
 You must produce EXACTLY four labeled sections and nothing else. No preamble. No commentary outside the sections.
 
 FANTASY_NARRATIVE: [vivid unsettling literary prose under 140 words written entirely from the fantasy player's perspective and sensory experience. They do not know what is happening on the reality side. They only feel consequences and disturbances through the veil.]
-FANTASY_CHOICES:{"choices":["First specific choice","Second choice with risk or tension","Third choice -- open path"]}
+FANTASY_CHOICES:{"choices":[{"text":"First specific choice","stat":"Cunning"},{"text":"Second choice with risk or tension","stat":"Ferocity"},{"text":"Third choice -- open path","stat":"Veilsight"}]}
 REALITY_NARRATIVE: [vivid unsettling literary horror prose under 140 words written entirely from the reality player's perspective and sensory experience. They do not know what is happening in Saintalia. They only feel the ripple effects.]
-REALITY_CHOICES:{"choices":["First specific choice","Second choice with tension or risk","Third choice -- open path"]}`;
+REALITY_CHOICES:{"choices":[{"text":"First specific choice","stat":"Perception"},{"text":"Second choice with tension or risk","stat":"Composure"},{"text":"Third choice -- open path","stat":"Craft"}]}
+
+Each choice names the one stat it tests, picked to fit the action. Fantasy stats are exactly: ${CHAR_DATA.fantasy.stats.join(', ')}. Reality stats are exactly: ${CHAR_DATA.reality.stats.join(', ')}. Vary the stats across the three choices. The stat names in the example above are only examples.`;
 }
 
 function buildCombinedOpening() {
@@ -289,7 +291,7 @@ function parseNarratorResponse(text) {
   const fnMatch = text.match(/FANTASY_NARRATIVE:\s*([\s\S]*?)(?=FANTASY_CHOICES:|$)/);
   if (fnMatch) result.fantasyNarrative = fnMatch[1].trim();
 
-  const fcMatch = text.match(/FANTASY_CHOICES:\s*(\{"choices":\s*\[[^\]]*\]\})/);
+  const fcMatch = text.match(/FANTASY_CHOICES:\s*(\{"choices":\s*\[[^\]]*\]\s*\})/);
   if (fcMatch) {
     try { result.fantasyChoices = JSON.parse(fcMatch[1]).choices; } catch(e) {}
   }
@@ -297,12 +299,21 @@ function parseNarratorResponse(text) {
   const rnMatch = text.match(/REALITY_NARRATIVE:\s*([\s\S]*?)(?=REALITY_CHOICES:|$)/);
   if (rnMatch) result.realityNarrative = rnMatch[1].trim();
 
-  const rcMatch = text.match(/REALITY_CHOICES:\s*(\{"choices":\s*\[[^\]]*\]\})/);
+  const rcMatch = text.match(/REALITY_CHOICES:\s*(\{"choices":\s*\[[^\]]*\]\s*\})/);
   if (rcMatch) {
     try { result.realityChoices = JSON.parse(rcMatch[1]).choices; } catch(e) {}
   }
 
   return result;
+}
+
+// Narrator choices arrive as {text, stat} objects, or plain strings from the
+// offline opening and older replies. A stat not on this side's list is dropped,
+// and a choice with no stat simply does not roll.
+function normalizeChoice(choice, side) {
+  const text = typeof choice === 'string' ? choice : (choice && choice.text) || '';
+  const stat = choice && typeof choice === 'object' && CHAR_DATA[side].stats.includes(choice.stat) ? choice.stat : null;
+  return { text, stat };
 }
 
 // ---- APPLY NARRATOR RESPONSE TO THIS CLIENT ----
@@ -321,14 +332,18 @@ function applyNarratorResponse(raw) {
   const container = document.getElementById(side + 'ChoicesBtns');
   if (container && myChoices.length) {
     container.innerHTML = '';
-    myChoices.forEach((choice, i) => {
+    const choices = myChoices.map(c => normalizeChoice(c, side)).filter(c => c.text);
+    choices.forEach((choice, i) => {
       const btn = document.createElement('button');
       btn.className = 'choice-btn';
-      btn.innerHTML = `<span class="choice-num">${i + 1}.</span>${choice}`;
-      btn.onclick = () => makeChoice(side, choice);
+      const statTag = choice.stat
+        ? `<span class="choice-stat">[${choice.stat} ${(S.myCharacter.stats && S.myCharacter.stats[choice.stat]) || 0}]</span>`
+        : '';
+      btn.innerHTML = `<span class="choice-num">${i + 1}.</span>${statTag}${choice.text}`;
+      btn.onclick = () => makeChoice(side, choice.text, choice.stat);
       container.appendChild(btn);
     });
-    G[side + 'Choices'] = myChoices;
+    G[side + 'Choices'] = choices;
   }
 
   setChoicesEnabled(true);
