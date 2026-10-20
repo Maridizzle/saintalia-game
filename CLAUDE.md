@@ -4,7 +4,7 @@ Read this fully before doing anything in this repo. These rules apply to every s
 
 ## What this is
 
-Saintalia is a two-player asymmetric horror-fantasy narrative game. One player is in Saintalia (an ancient dying realm), one is an artist in the modern waking world. They connect across a dying veil-chimera. The game is a static browser app: PeerJS for the two-device connection, Groq for AI narration, GitHub Pages for hosting. No backend for the game itself.
+Saintalia is a two-player asymmetric horror-fantasy narrative game. One player is in Saintalia (an ancient dying realm), one is an artist in the modern waking world. They connect across a dying veil-chimera. The live game is `game/`, served by a small Node server on Railway (`server/`): a WebSocket relay between the two players, server-side Groq narration, Postgres save slots, one shared password. PeerJS and GitHub Pages remain as a fallback with no server. See "Architecture map: the live game" below.
 
 Owner: Maridizzle (GitHub: Maridizzle). A building partner co-designs mechanics. Maridizzle handles all GitHub pushes personally.
 
@@ -38,48 +38,112 @@ Owner: Maridizzle (GitHub: Maridizzle). A building partner co-designs mechanics.
 
 ## Repo layout
 
-### What is actually in the repo (verified Phase 0)
+### What is in the repo (verified 2026-10-20)
 
 ```
 /                                 repo root
   CLAUDE.md                       this file
-  PLAN.md                         phased build plan with verification gates
-  saintalia-v2.html               main game, 2,637 lines. Source of truth for behavior.
-  saintalia-lockdown-2p-v2.html   The Lockdown, standalone, 1,242 lines
-  saintalia-15questions-v2.html   The 15 Questions, standalone, 929 lines
+  PLAN.md                         phased build plan (phases 0-11)
+  index.html                      redirects to game/
+  package.json                    npm start runs the server; npm test runs both test files
+  docs/saintalia-vault.md         the vault
+  docs/story-map.md
+  server/index.js                 Railway server: relay, /api/narrate, saves, Basic Auth
+  server/test/relaytest.js
+  game/                           THE LIVE GAME
+    index.html                    shell: markup, fonts, script tags (load order lives here)
+    dev.html                      solo test page: both players in one tab (dev only)
+    css/game.css
+    data/char-data.js             CHAR_DATA (races, jobs, stats, appearance, personality)
+    data/scenes/                  lockdown.js, dream.js, questions.js, bridges.js
+    js/connection.js              lobby, relay or PeerJS transport, ONE dispatcher
+    js/scenes.js                  scene manager: mount, unmount, advance
+    js/character.js               character creation, plus the name, drive, burden, fear lists
+    js/narrator.js                Groq calls, prompts, offline opening, parser
+    js/game.js                    the Opening: screen, turn loop, dice, abilities
+    js/session.js                 snapshots, restore, server saves
+    js/dev.js                     dev mode
+    js/scenes/                    opening, lockdown, bridge, dream, questions, coming-soon
+    test/loadtest.js              loads every script in order against a stub DOM
+  saintalia-v2.html               reference build (see below)
+  saintalia-lockdown-2p-v2.html   reference build
+  saintalia-15questions-v2.html   reference build
 ```
 
-That is everything. No `game/`, no `puzzles/`, no `mindmap/`, no `docs/`, no `.github/`.
+**All game work goes in `game/`.** The three root HTML files are the original standalone builds, kept as reference. They are not served to players. Maridizzle decides if and when they move or go. Nothing is deleted, ever.
+
+Note: on 2026-10-19 a session edited the three reference files by mistake, believing they were the live game (map grid, saved character, full-character prompts, dice, abilities, fixes). Those commits are on `main`. Maridizzle chose to leave them. The same work was then rebuilt properly in `game/`.
 
 The mindmap and the memoir live in a separate repo, `Maridizzle/saintalia`. Not this one. Do not read or touch that repo without asking.
 
-GitHub Pages is not enabled yet. When it is, it deploys from `main` at root. A `main` branch does not exist yet.
+`main` is the default branch (checked 2026-10-20). Root `index.html` redirects to `game/` for GitHub Pages; the Railway server serves `game/` directly.
 
-### Target layout (built in phases, see PLAN.md)
+Tests: `node game/test/loadtest.js` (no install needed). `server/test/relaytest.js` needs `npm install` first.
 
-```
-/                              repo root
-  index.html                   root entry. Pages serves this. Open decision: the game
-                               itself, or a redirect into game/.
-  game/
-    index.html                 shell only: markup, font links, script tags
-    css/game.css               shared styles plus the two console themes
-    js/connection.js           PeerJS layer, ONE dispatcher
-    js/character.js            character creation
-    js/narrator.js             Groq calls, prompts, offline fallback
-    js/scenes.js               scene manager: mount, unmount, advance
-    js/scenes/opening.js       the Opening and the turn loop
-    js/scenes/lockdown.js      The Lockdown
-    js/scenes/questions.js     The 15 Questions
-    js/scenes/coming-soon.js   the end gate
-    data/char-data.js          CHAR_DATA (races, jobs, stats, appearance, personality)
-    data/scenes/               one JSON file per scene's content
-  docs/                        design notes, inventory reports
-```
+## Architecture map: the live game (`game/`)
 
-The three original HTML files stay at repo root, untouched, as reference builds. Maridizzle decides if and when they move or go. Nothing is deleted, ever.
+What players actually play. Verified against the code on 2026-10-20.
 
-## Architecture map (current single-file build)
+### Hosting and transport
+
+- Railway runs `server/index.js` (Express). HTTP Basic Auth on everything with one shared `APP_PASSWORD`. It serves `game/` as static files, relays the two players' messages over a WebSocket (rooms live in memory and are swept after thirty idle minutes), proxies Groq at `POST /api/narrate` with `GROQ_API_KEY`, and keeps save slots in Postgres when `DATABASE_URL` is set. Secrets exist only as Railway env vars. Claude changes nothing on Railway.
+- `TRANSPORT = 'auto'` in `connection.js`. PeerJS stays behind it as the fallback for GitHub Pages, where there is no server.
+
+### Load order and the shared scope
+
+`game/index.html` loads, in order: `data/char-data.js`, `js/connection.js`, `js/scenes.js`, `js/character.js`, `js/narrator.js`, `js/game.js`, `js/session.js`, the four `data/scenes/*.js`, the six `js/scenes/*.js`, then `js/dev.js`. They all share one global scope, so every top-level name must be unique. `node game/test/loadtest.js` catches collisions and load-order mistakes.
+
+### Messages
+
+One dispatcher: `onMessage(type, fn)` and `dispatchMessage` in `connection.js`. Types in use: `begin`, `char-reopen`, `character`, `dev-reroll`, `dev-rewind`, `dev-rewrite-request`, `dev-turn-start`, `energy-update`, `handshake`, `mural-advance`, `narrate-request`, `narrate-response`, `narrator-error`, `narrator-offline`, `narrator-update`, `note`, `player-choice`, `resume`, `scene-advance`, `scene-msg`, `scene-ready`, `veil-update`. Scene traffic travels inside `scene-msg` and is dropped if its scene is not mounted.
+
+### Host and narration
+
+- `S.isHost` is latched when the connection opens and never read from the lobby tab again.
+- `narrationAvailable()` is true when the server narrates or this player typed a key. The Opening asks the narrator whenever it is available. (Until 2026-10-20 it only checked for a typed key, so on Railway, where nobody types one, every turn replayed the offline opening and choices did nothing.)
+- `callGroq` returns null on failure, with the reason in `narratorError`. `isUsableReply` rejects any reply missing narration or choices for either side.
+- Opening fails: the written offline opening plays once. A turn fails: both choices stay pending, turn and veil do not move, the host sees the reason and a Try again button, the joiner sees "The veil is silent." No narrator at all: the story stops after the opening and both players are told; the lobby button reads "Continue without AI narration (opening only)".
+- Every other scene calls `requestNarration`, which uses the server or asks the host, so at most the host ever needs a key.
+- `characterBrief()` in `narrator.js` gives the narrator the whole character: race and lore, job and ability (listed as player-triggered only), all six stats with their meanings, appearance, drive, burden, fear, personality. Used by the Opening (both players), the Lockdown (the Artist) and the Dream flashes (both). 15 Questions builds its own `qCharDescriptor` from the real characters.
+
+### The Opening turn
+
+1. The narrator tags each choice with one stat, as `{"text": ..., "stat": ...}`. Buttons show it with the player's value, e.g. `[Perception 5]`. A choice with no valid stat, including every offline-opening choice, resolves as "no check".
+2. Clicking rolls on the chooser's own screen (rule under Stats and jobs) and sends `player-choice` carrying the roll and any ability.
+3. Both players must choose. The host then makes one narrator call with both choices, both check results and any abilities, and tells the narrator to honor them without mentioning dice or numbers.
+4. The host owns the turn counter, veil and mural and broadcasts them. Energy belongs to the fantasy player and is broadcast from that side.
+
+### Saves and reload
+
+- `collectSnapshot()` and `sessionRestore()` in `session.js`. Shared numbers and each player's private state are saved separately; each role's half is gated on its own save token.
+- The snapshot carries pending choices, rolls and abilities, ability use, and Veil Read answers.
+- `G.feedLog` records every Opening story entry. `restoreOpening` replays it and redraws the choice buttons, so a reload or a dev rewind shows the story instead of an empty panel.
+
+### Layout
+
+- `body.screen-game > #scene-root` is a height-bounded flex column, and each scene's wrapper scrolls inside it. Before 2026-10-20 it had no height limit, so on desktop the Opening grew past the window after a few turns and the choices were cut off.
+
+### The Lockdown map (P2's screen)
+
+- Rooms sit on a 4 x 6 grid in `LOCKDOWN_ROOM_CELLS`: columns A to D west to east, rows 1 to 6 north to south. Every exit moves exactly one cell in its compass direction. P2 sees labelled rooms, doorway lines, the Artist's room lit up, "The Artist is in Main Corridor (C4)" under the map, cell codes in the object list, and plain instructions. The old hand-placed positions contradicted the exits.
+
+### Dev mode (`js/dev.js`, `dev.html`)
+
+- Press D three times quickly, not while typing in a box, to toggle it. Remembered per browser in localStorage `saintalia.dev` ('1' or '0', never removed). `DEBUG` in `connection.js` is false, so players see no debug panel and no skip button.
+- Dev bar: Quick character (random picks from existing data, invents nothing), Skip scene, Reroll dice (refunds the old cost), Rewrite turn (same choices, dice and abilities; the host asks the narrator once), Back a turn (both screens). Reroll, rewrite and back work in the Opening only.
+- Checkpoints: once each Opening turn's veil, energy and mural updates are out, the host sends `dev-turn-start` and both sides keep a copy of their own snapshot for that turn.
+- `game/dev.html`: both players in one tab, two game frames joined by a BroadcastChannel, Saintalia as host. Swap sides and Side by side. An optional Groq key box for testing off Railway. Server saves report "no token" there, which is expected.
+
+### Known and not fixed
+
+- `probeServerNarration` treats any non-404 reply as "the server narrates", so a server without `GROQ_API_KEY` hides the key box and every turn ends in Try again with "no-groq-key".
+- Reloading during a failed turn keeps both choices but drops the Try again button.
+- The fantasy terminal never shows the Artist's misdialed text. It reads "terminal initializing" until a real note arrives.
+- `restoreGamePhase` restores energy as `sg.energy || 100`, so an energy of 0 comes back as 100.
+
+## Reference build: `saintalia-v2.html` (historical)
+
+Everything from here to "Locked canon" describes the root reference files as audited in Phase 0, with line numbers from that audit. It is history, not the live game. The live game fixed most of these bugs: the double peer init, the joiner's lost choice, `skipGroq` never sending `begin`, the veil desync, the key in `begin`, the three data listeners. The fonts, palette, mural progression, stats and job facts below still apply to the live game.
 
 ### State objects
 
@@ -155,7 +219,7 @@ Notes, mural, UI: `sendNote`, `receiveNote`, `addNoteToThread`, `addHoloMsg`, `a
 
 - TWO themes exist, not ten: `body.theme-artist` (slate blue, parchment, phone console) and `body.theme-fantasy` (fuchsia, deep purple, holographic console). They are applied at role select and survive the `innerHTML` swaps because the class sits on `body`. All three files define the same two.
 
-- There is NO localStorage persistence and NO reduce-motion toggle in this repo. Zero `localStorage` calls (one stale comment at v2 line 802), zero `prefers-reduced-motion`. If a ten-theme build exists it is not here.
+- Browser storage in the live game: localStorage `saintalia.dev` (the dev-mode flag) and sessionStorage `saintalia-session` (the relay session, so a reload rejoins). Saves live in Postgres on the server, not the browser. The root reference files save a finished character to localStorage since 2026-10-19 (keys `saintalia.character.<side>.<time>` plus a `.current` pointer). There is NO reduce-motion toggle anywhere. If a ten-theme build exists it is not here.
 
 ### Stats and jobs
 
@@ -167,7 +231,23 @@ Notes, mural, UI: `sendNote`, `receiveNote`, `addNoteToThread`, `addHoloMsg`, `a
 
 - Mirrored jobs: Warlord/Photographer, Hedge Witch/Therapist, Bonekeeper/Forensic Archivist, Wayfinder/Urban Explorer, Silvertongue/Journalist, Ruinwalker/Archaeologist.
 
-## Architecture map (the two scene files)
+- **Stat checks (Maridizzle's rule, 2026-10-20, live in the Opening):** d20 + (stat x 2). 15 or more succeeds, 10 to 14 is a partial success with a cost, under 10 fails. A natural 1 always fails, a natural 20 always succeeds. Roughly: stat 0 succeeds 30% of the time, stat 5 about 80%. Constants `CHECK_*` in `game.js`.
+  - Costs: a fantasy failure costs 8 energy, a partial 4. A reality failure adds 2 to 7 veil, a partial 1 to 3, on top of the usual 2 to 7 drift per turn.
+  - Typed actions must pick a stat from a dropdown first.
+  - PLAN.md's inventory backlog item also names a d20 ("roll of 1 always breaks, 20 always holds"), so the two agree.
+
+- **Abilities (Maridizzle's rules, 2026-10-20, live in the Opening):** each player has a button for their job's ability, usable once per scene. Arming it attaches it to the next action; the dice still roll; the narrator gets the ability's own description and is told to honor it that turn.
+  - Veil Read opens a yes or no question box. The narrator answers in a `VEIL_READ:` line shown only to the asker, once, and every later prompt carries that answer as something the story must keep to.
+  - Held, shown locked as "Not active yet": Battle Cry and Compel (waiting for Maridizzle's battle encounter system) and On Record (no note corruption mechanic exists yet).
+  - Ability text still says "once per session" in places while the game enforces once per scene. Maridizzle's wording to change if wanted.
+
+## Reference builds: the two scene files (historical)
+
+These describe the root standalone files. The live versions are `game/js/scenes/lockdown.js` and `game/js/scenes/questions.js`, which run inside the one game and share its connection, characters and narrator. Differences worth knowing:
+
+- Lockdown flashes 2 and 3: fixed in `game/data/scenes/lockdown.js` by #18 (bottle = The Neural Network, compass = The Book). The root reference copy still has them crossed.
+- Lockdown: P2 object state is real on both sides in the live game; P2's map is the 4 x 6 grid; the Artist's character reaches the narrator.
+- 15 Questions: narration goes through `requestNarration`, so only the host needs a key, which settles the "both players need a key" contradiction below. It uses the real characters, not a stripped `CHAR_DATA`.
 
 ### `saintalia-lockdown-2p-v2.html` -- The Lockdown
 
@@ -269,7 +349,7 @@ Added from the vault (`saintalia_7.md`, supplied by Maridizzle):
 
 - **The 15 Questions (Beat 2-B).** 15 questions in the pool, 10 main questions asked per playthrough, alternating asker, 10 named tangents. Tangent names: Broken Epistemology A and B, Conditional Survival A and B, Grief Topology A and B, Self as Threat A and B, Systemic Rot, The Connection Itself.
 
-- Beat 2-A is **The Dream**, per the vault. Not built. See the beat spine table below.
+- Beat 2-A is **The Dream**, per the vault. Built in the live game (`game/js/scenes/dream.js`; its header describes the placement mechanic as built). See the beat spine table below.
 
 - The Tyvian and Sasha coupling in the tangent text is decided: they are templates, character creation stays, and genericizing the guardrails is Maridizzle's rewrite. See "Protagonists: decided" below.
 
@@ -279,12 +359,12 @@ Established in `saintalia_7.md`. Code column says what exists in this repo.
 
 | Layer | Beat | Code |
 |---|---|---|
-| Origin | The Opening | built (v2) |
-| 1 | The Lockdown | built (sandbox) |
-| 1 | The Escape | folded into the Lockdown's completion message |
-| 1 | The Sky Tears | not built |
-| 2 | The Dream (beat 2-A) | not built, **to be built for real** (PLAN.md Phase 7) |
-| 2 | The 15 Questions (beat 2-B) | built (sandbox) |
+| Origin | The Opening | built (`game/`) |
+| 1 | The Lockdown | built (`game/`) |
+| 1 | The Escape | bridge scene in `game/`, text still null on purpose (shows its TBD token) |
+| 1 | The Sky Tears | bridge scene in `game/`, text still null on purpose (shows its TBD token) |
+| 2 | The Dream (beat 2-A) | built (`game/`) |
+| 2 | The 15 Questions (beat 2-B) | built (`game/`) |
 | 2 | The Branching Confessions | not built, not specified |
 | 2 | The Soul Tagging | not built, fully specified |
 | 2 | Four fusion outcomes | not built, fully specified |
@@ -292,13 +372,13 @@ Established in `saintalia_7.md`. Code column says what exists in this repo.
 | 4 | Cascade | not built |
 | end | Six endings | not built, all fully specified |
 
-**The three built scenes are not adjacent.** The Escape, The Sky Tears and The Dream sit between the Lockdown and the 15 Questions.
+**The scene order in the live game** (`setSceneOrder` in `game.js`): Opening, Lockdown, Escape (bridge), Sky Tears (bridge), Dream, 15 Questions, coming soon.
 
 **Maridizzle's decision on that gap:** bridge The Escape and The Sky Tears, which are genuinely transitional. **Build The Dream for real.** It is a full puzzle scene roughly the size of the Lockdown and it carries the central revelation of Layer 2. Bridging it would have the 15 Questions interrogate both players about a veil they were never properly shown.
 
 **The Dream reuses the same five objects** with a different mechanic (the artist describes, P2 guides placement on a wall) and a different flash sequence that always fires in a fixed order regardless of placement order: seed of life inside a glowing seed, flower of life expanding, tree of life forming, the tree exploding into a geometric network, a dark cloaked figure entering the network and poisoning it.
 
-Three things in the vault's Dream spec are unresolved and Claude will not guess them. See PLAN.md Phase 7.
+Three things in the vault's Dream spec were unresolved when this was written. See PLAN.md Phase 7. The Dream has since been built in `game/`, and its code makes a choice on each (flashes always fire 1 to 5 in order; a symbol mapping in `data/scenes/dream.js` decides a correct placement; a wrong one drains energy and bounces the object back). Nothing in this file records whether Maridizzle made those choices. Confirm with her before building on them.
 - The object-to-flash mapping (key = 1, bottle = 2, and so on) contradicts "flashes always fire in sequence order regardless of placement order."
 - Nothing states what makes a placement "correct," or what a wrong one does.
 - The five flashes are one-line concepts, not written prose like the Lockdown's five.
