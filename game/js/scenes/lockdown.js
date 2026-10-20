@@ -284,34 +284,91 @@ function lkMarkComplete() {
 
 // ---- P2 GRID ----
 
+// Marker and object dot sit side by side under the room name, not on top of it
+const LK_MARKER_OFFSET = { x: -6, y: 4 };
+const LK_DOT_OFFSET    = { x: 6,  y: 4 };
+
+// 'C4' style label for a room's cell
+function lkCellLabel(roomId) {
+  const c = LOCKDOWN_ROOM_CELLS[roomId];
+  return c ? LOCKDOWN_GRID_COLS[c.col] + c.row : '';
+}
+
+function lkRoomOfObject(objId) {
+  return Object.keys(LOCKDOWN_ROOMS).find(id => LOCKDOWN_ROOMS[id].object === objId);
+}
+
+function lkGridEl(parent, className, left, top, text) {
+  const el = document.createElement('div');
+  el.className = className;
+  el.style.left = left;
+  el.style.top = top;
+  if (text !== undefined) el.textContent = text;
+  parent.appendChild(el);
+  return el;
+}
+
 function lkBuildGrid() {
   const canvas = document.getElementById('lkGrid');
-  if (!canvas) return;
-  Object.values(LOCKDOWN_OBJECTS).forEach(obj => {
-    const dot = document.createElement('div');
-    dot.className = 'pressure-dot';
-    dot.id = 'lkDot-' + obj.pointId;
-    dot.style.left = obj.gridX + '%';
-    dot.style.top = obj.gridY + '%';
-    canvas.appendChild(dot);
+  const board = document.getElementById('lkBoard');
+  if (!canvas || !board) return;
 
-    const num = document.createElement('div');
-    num.className = 'pressure-dot-num';
-    num.style.left = obj.gridX + '%';
-    num.style.top = (obj.gridY + 5) + '%';
-    num.textContent = obj.pointId;
-    canvas.appendChild(num);
+  // Axis labels in the gutter: column letters along the top, row numbers down the left
+  LOCKDOWN_GRID_COLS.forEach((letter, i) => {
+    lkGridEl(canvas, 'grid-axis', 'calc(22px + (100% - 44px) * ' + ((i + 0.5) / LOCKDOWN_GRID_COLS.length) + ')', '11px', letter);
   });
+  for (let r = 1; r <= LOCKDOWN_GRID_ROWS; r++) {
+    lkGridEl(canvas, 'grid-axis', '11px', 'calc(22px + (100% - 44px) * ' + ((r - 0.5) / LOCKDOWN_GRID_ROWS) + ')', String(r));
+  }
+
+  // Doorways first so the room cells sit on top of them. Each exit is drawn
+  // once, from the room on its west or north side.
+  Object.keys(LOCKDOWN_ROOM_CELLS).forEach(id => {
+    const pos = LOCKDOWN_ROOM_POSITIONS[id];
+    const exits = LOCKDOWN_ROOMS[id].exits;
+    if (exits.E) lkGridEl(board, 'room-door h', pos.x + '%', pos.y + '%').style.width = (LOCKDOWN_ROOM_POSITIONS[exits.E].x - pos.x) + '%';
+    if (exits.S) lkGridEl(board, 'room-door v', pos.x + '%', pos.y + '%').style.height = (LOCKDOWN_ROOM_POSITIONS[exits.S].y - pos.y) + '%';
+  });
+
+  // One labelled cell per room
+  Object.keys(LOCKDOWN_ROOM_CELLS).forEach(id => {
+    const pos = LOCKDOWN_ROOM_POSITIONS[id];
+    const cell = lkGridEl(board, 'room-cell', pos.x + '%', pos.y + '%');
+    cell.id = 'lkCell-' + id;
+    const code = document.createElement('span');
+    code.className = 'cell-id';
+    code.textContent = lkCellLabel(id);
+    cell.appendChild(code);
+    cell.appendChild(document.createTextNode(LOCKDOWN_ROOMS[id].name));
+  });
+
+  // Object dots inside their room's cell, point number inside the dot
+  Object.values(LOCKDOWN_OBJECTS).forEach(obj => {
+    const dot = lkGridEl(board, 'pressure-dot', (obj.gridX + LK_DOT_OFFSET.x) + '%', (obj.gridY + LK_DOT_OFFSET.y) + '%', String(obj.pointId));
+    dot.id = 'lkDot-' + obj.pointId;
+  });
+
+  // Keep the marker above the cells and dots
+  const marker = document.getElementById('lkMarker');
+  if (marker) board.appendChild(marker);
   lkMoveMarker('entrance');
 }
 
+// Move the Artist marker into the room's cell and light that cell up
 function lkMoveMarker(roomId) {
   const pos = LOCKDOWN_ROOM_POSITIONS[roomId];
   const marker = document.getElementById('lkMarker');
   if (!pos || !marker) return;
-  marker.style.left = pos.x + '%';
-  marker.style.top = pos.y + '%';
+  marker.style.left = (pos.x + LK_MARKER_OFFSET.x) + '%';
+  marker.style.top = (pos.y + LK_MARKER_OFFSET.y) + '%';
   marker.style.transition = 'left 0.4s ease, top 0.4s ease';
+
+  document.querySelectorAll('.lk-wrap .room-cell.current').forEach(c => c.classList.remove('current'));
+  const cell = document.getElementById('lkCell-' + roomId);
+  if (cell) cell.classList.add('current');
+
+  const loc = document.getElementById('lkLocation');
+  if (loc) loc.textContent = 'The Artist is in ' + LOCKDOWN_ROOMS[roomId].name + ' (' + lkCellLabel(roomId) + ')';
 }
 
 function lkUpdatePills() {
@@ -322,7 +379,7 @@ function lkUpdatePills() {
     const pill = document.createElement('div');
     pill.className = 'point-pill' + (LK.found[obj.id] ? ' touched' : '');
     pill.id = 'lkPill-' + obj.pointId;
-    pill.textContent = obj.pointId + '. ' + obj.shortName + ' -- ' + obj.hint;
+    pill.textContent = obj.pointId + '. ' + obj.shortName + ' -- ' + lkCellLabel(lkRoomOfObject(obj.id)) + ' -- ' + obj.hint;
     container.appendChild(pill);
   });
 }
@@ -550,14 +607,25 @@ const SceneLockdown = {
     return `
     <div class="lk-p2">
       <div class="grid-card">
-        <div class="grid-label">Pressure point grid (oriented N/S/E/W) -- the red marker shows where the Artist is right now. Each green dot is a wrong object; its label tells you roughly where it sits relative to the entrance. Dots go dark when found. Use the compass directions in your notes to guide the Artist.</div>
+        <div class="grid-label">Building map -- only you can see this</div>
+        <div class="grid-help">
+          <p>The Artist cannot see this map. You can.</p>
+          <p>The building is a grid. Columns A to D run west to east. Rows 1 to 6 run north to south. North is always up.</p>
+          <p>The red <strong>A</strong> is the Artist. It moves when they move, and their room lights up.</p>
+          <p>Lines between rooms are doorways. No line, no way through.</p>
+          <p>Green dots are wrong objects. Tell the Artist which direction to walk, one room at a time. Once they are in the right room, tell them to search it.</p>
+          <p>When a dot goes dark, that object is found and its transmission appears below. Find all five to open the building.</p>
+        </div>
         <div class="grid-canvas" id="lkGrid">
           <div class="compass-label compass-n">N</div>
           <div class="compass-label compass-s">S</div>
           <div class="compass-label compass-e">E</div>
           <div class="compass-label compass-w">W</div>
-          <div class="artist-marker" id="lkMarker">A</div>
+          <div class="grid-board" id="lkBoard">
+            <div class="artist-marker" id="lkMarker">A</div>
+          </div>
         </div>
+        <div class="grid-location" id="lkLocation"></div>
         <div class="drag-hint">The red marker moves automatically as the Artist navigates. Watch the green dots go dark as objects are found.</div>
       </div>
       <div class="points-status" id="lkPills"></div>

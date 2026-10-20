@@ -63,28 +63,41 @@ const LOCKDOWN_ROOMS = {
   },
 };
 
-// ---- ROOM GRID POSITIONS ----
-// Building layout reflected as X/Y % positions on the grid
-// Vertical axis: top = north end of building, bottom = entrance
-// Horizontal axis: left = west, right = east
-const LOCKDOWN_ROOM_POSITIONS = {
-  sideCorridor: { x: 30, y: 8  },
-  breakRoom:    { x: 30, y: 22 },
-  stairwell:    { x: 30, y: 36 },
-  landing:      { x: 55, y: 36 },
-  storageRoom:  { x: 75, y: 36 },
-  corridor:     { x: 55, y: 52 },
-  hallwayA:     { x: 55, y: 65 },
-  utilityRoom:  { x: 78, y: 65 },
-  entrance:     { x: 55, y: 80 },
+// ---- ROOM GRID ----
+// P2's map. Columns A-D run west to east, rows 1-6 run north to south.
+// Every exit in LOCKDOWN_ROOMS moves exactly one cell in its compass
+// direction, so the marker always moves the way the Artist was told to walk.
+// The old hand-placed percentages contradicted the exits (north from the
+// Landing moved the marker west, west from the Stairwell moved it north).
+const LOCKDOWN_GRID_COLS = ['A', 'B', 'C', 'D'];
+const LOCKDOWN_GRID_ROWS = 6;
+const LOCKDOWN_ROOM_CELLS = {
+  sideCorridor: { col: 0, row: 1 },
+  breakRoom:    { col: 0, row: 2 },
+  stairwell:    { col: 1, row: 2 },
+  landing:      { col: 1, row: 3 },
+  storageRoom:  { col: 2, row: 3 },
+  corridor:     { col: 2, row: 4 },
+  hallwayA:     { col: 2, row: 5 },
+  entrance:     { col: 2, row: 6 },
+  utilityRoom:  { col: 3, row: 6 },
 };
+
+// X/Y % of the center of each room's cell on the grid board
+const LOCKDOWN_ROOM_POSITIONS = {};
+Object.entries(LOCKDOWN_ROOM_CELLS).forEach(([id, c]) => {
+  LOCKDOWN_ROOM_POSITIONS[id] = {
+    x: (c.col + 0.5) * 100 / LOCKDOWN_GRID_COLS.length,
+    y: (c.row - 0.5) * 100 / LOCKDOWN_GRID_ROWS,
+  };
+});
 
 // ---- OBJECT DATA ----
 // gridX/gridY now match their room's position exactly
 const LOCKDOWN_OBJECTS = {
   clock:      { id:'clock',      name:'a clock with no hands but too many faces',              shortName:'clock',      aliases:['clock','clocks','dial','dials'],                       hint:'south end, in the entrance itself',     flashName:'The Flythrough',    pointId:4, gridX: LOCKDOWN_ROOM_POSITIONS.entrance.x,     gridY: LOCKDOWN_ROOM_POSITIONS.entrance.y,     found:false },
   photograph: { id:'photograph', name:'a photograph where every subject has their back turned', shortName:'photograph', aliases:['photograph','photo','photos','picture','pictures','frame'], hint:'central corridor, north of the entrance', flashName:'The Harvest',        pointId:5, gridX: LOCKDOWN_ROOM_POSITIONS.corridor.x,     gridY: LOCKDOWN_ROOM_POSITIONS.corridor.y,     found:false },
-  key:        { id:'key',        name:'a key made of teeth',                                    shortName:'key',        aliases:['key','keys'],                                          hint:'far northeast, near the storage area',  flashName:'Cellular Fusion',   pointId:1, gridX: LOCKDOWN_ROOM_POSITIONS.storageRoom.x,  gridY: LOCKDOWN_ROOM_POSITIONS.storageRoom.y,  found:false },
+  key:        { id:'key',        name:'a key made of teeth',                                    shortName:'key',        aliases:['key','keys'],                                          hint:'north, near the storage area',  flashName:'Cellular Fusion',   pointId:1, gridX: LOCKDOWN_ROOM_POSITIONS.storageRoom.x,  gridY: LOCKDOWN_ROOM_POSITIONS.storageRoom.y,  found:false },
   compass:    { id:'compass',    name:'a compass whose needle points inward',                   shortName:'compass',    aliases:['compass','compasses'],                                 hint:'northwest, in the stairwell',           flashName:'The Book',           pointId:3, gridX: LOCKDOWN_ROOM_POSITIONS.stairwell.x,    gridY: LOCKDOWN_ROOM_POSITIONS.stairwell.y,    found:false },
   bottle:     { id:'bottle',     name:'a water bottle that pours nothing',                      shortName:'bottle',     aliases:['bottle','bottles','water bottle','water'],             hint:'far north, west wing',                  flashName:'The Neural Network', pointId:2, gridX: LOCKDOWN_ROOM_POSITIONS.sideCorridor.x, gridY: LOCKDOWN_ROOM_POSITIONS.sideCorridor.y, found:false },
 };

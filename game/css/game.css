@@ -1244,7 +1244,7 @@ body.screen-lobby::after { height: 100vh; height: 100dvh; }
 /* ---- P2 GRID ---- */
 .lk-wrap .grid-card { background:rgba(0,0,0,0.35); border:1px solid rgba(255,255,255,0.06); padding:1rem; }
 .lk-wrap .grid-label { font-family:'Cinzel',serif; font-size:0.62rem; letter-spacing:0.25em; text-transform:uppercase; color:var(--bone); opacity:0.45; margin-bottom:0.75rem; line-height:1.6; }
-.lk-wrap .grid-canvas { position:relative; width:100%; height:300px; background:rgba(0,0,0,0.5); border:1px solid rgba(var(--gold-rgb),0.1); overflow:hidden; }
+.lk-wrap .grid-canvas { position:relative; width:100%; height:400px; background:rgba(0,0,0,0.5); border:1px solid rgba(var(--gold-rgb),0.1); overflow:hidden; }
 .lk-wrap .grid-canvas::before { content:''; position:absolute; inset:0; pointer-events:none;
   background: repeating-linear-gradient(0deg, transparent, transparent 27px, rgba(var(--gold-rgb),0.03) 28px),
               repeating-linear-gradient(90deg, transparent, transparent 27px, rgba(var(--gold-rgb),0.03) 28px); }
@@ -1258,6 +1258,26 @@ body.screen-lobby::after { height: 100vh; height: 100dvh; }
 .lk-wrap .compass-s { bottom:4px; left:50%; transform:translateX(-50%); }
 .lk-wrap .compass-w { left:4px; top:50%; transform:translateY(-50%); }
 .lk-wrap .compass-e { right:4px; top:50%; transform:translateY(-50%); }
+
+/* P2 map: labelled 4 x 6 room grid inside the canvas, 22px gutter for axis labels */
+.lk-wrap .grid-help { font-size:0.86rem; line-height:1.55; color:var(--bone); opacity:0.8; margin-bottom:0.75rem; }
+.lk-wrap .grid-help p { margin:0 0 0.35rem; }
+.lk-wrap .grid-board { position:absolute; top:22px; left:22px; right:22px; bottom:22px; border:1px solid rgba(var(--gold-rgb),0.15);
+  background: linear-gradient(to right, rgba(var(--gold-rgb),0.15) 1px, transparent 1px) 0 0 / 25% 100%,
+              linear-gradient(to bottom, rgba(var(--gold-rgb),0.15) 1px, transparent 1px) 0 0 / 100% calc(100% / 6); }
+.lk-wrap .grid-axis { position:absolute; transform:translate(-50%,-50%); pointer-events:none; font-family:'Cinzel',serif; font-size:0.68rem; font-weight:600; color:var(--bone); opacity:0.75; }
+.lk-wrap .room-door { position:absolute; background:rgba(var(--gold-rgb),0.6); pointer-events:none; }
+.lk-wrap .room-door.h { height:3px; transform:translateY(-50%); }
+.lk-wrap .room-door.v { width:3px; transform:translateX(-50%); }
+.lk-wrap .room-cell { position:absolute; transform:translate(-50%,-50%); width:calc(25% - 10px); height:calc(100% / 6 - 10px);
+  border:1px solid rgba(var(--gold-rgb),0.4); border-radius:3px; background:rgb(10,6,16);
+  font-family:'Cinzel',serif; font-size:9px; line-height:1.15; color:var(--bone); text-align:center; padding:2px; overflow:hidden; pointer-events:none;
+  transition:border-color 0.3s, box-shadow 0.3s, background 0.3s; }
+.lk-wrap .room-cell .cell-id { font-weight:600; opacity:0.6; margin-right:3px; }
+.lk-wrap .room-cell.current { border-color:rgba(192,57,43,0.95); background:rgb(60,12,10); box-shadow:0 0 10px rgba(192,57,43,0.5); }
+/* the object's point number sits inside its dot so it never spills out of the room */
+.lk-wrap .grid-board .pressure-dot { display:flex; align-items:center; justify-content:center; font-family:'Cinzel',serif; font-size:9px; font-weight:600; color:#fff; }
+.lk-wrap .grid-location { font-family:'Cinzel',serif; font-size:0.8rem; letter-spacing:0.08em; color:var(--bone); text-align:center; margin-top:0.5rem; }
 
 .lk-wrap .points-status { display:flex; flex-wrap:wrap; gap:0.4rem; }
 .lk-wrap .point-pill { font-family:'Cinzel',serif; font-size:0.65rem; letter-spacing:0.1em; padding:0.25rem 0.55rem; border:1px solid rgba(29,158,117,0.4); color:var(--green); background:var(--green-dim); transition:all 0.4s; }
@@ -1286,6 +1306,14 @@ body.theme-fantasy .lk-wrap .flash-log-label { font-family:'Orbitron',sans-serif
 body.theme-fantasy .lk-wrap .grid-canvas { background:rgba(13,3,24,0.6); border-color:rgba(255,62,200,0.25); }
 body.theme-fantasy .lk-wrap .flash-item-name { font-family:'Share Tech Mono',monospace; letter-spacing:0.08em; }
 body.theme-fantasy .lk-wrap .drag-hint { color:#c39bff; }
+body.theme-fantasy .lk-wrap .grid-board { border-color:rgba(255,62,200,0.2);
+  background: linear-gradient(to right, rgba(255,62,200,0.18) 1px, transparent 1px) 0 0 / 25% 100%,
+              linear-gradient(to bottom, rgba(255,62,200,0.18) 1px, transparent 1px) 0 0 / 100% calc(100% / 6); }
+body.theme-fantasy .lk-wrap .room-cell { border-color:rgba(255,62,200,0.45); background:rgb(13,3,24); }
+body.theme-fantasy .lk-wrap .room-cell.current { border-color:rgba(192,57,43,0.95); background:rgb(60,12,10); }
+body.theme-fantasy .lk-wrap .room-door { background:rgba(255,125,221,0.6); }
+body.theme-fantasy .lk-wrap .grid-axis,
+body.theme-fantasy .lk-wrap .grid-location { color:#ff7ddd; }
 
 body.theme-artist .lk-wrap .story-feed { background:#efe7d6; border:1px solid #d3c6a8; border-radius:12px; }
 body.theme-artist .lk-wrap .story-entry { background:rgba(255,255,255,0.45); border-radius:0 10px 10px 0; }
@@ -1302,7 +1330,8 @@ body.theme-artist .lk-wrap .action-btn { clip-path:none; border-radius:18px; bac
 @media (max-width: 700px) {
   .lk-wrap { padding: 0.6rem; }
   .lk-wrap .story-feed { min-height: 40vh; max-height: 55vh; }
-  .lk-wrap .grid-canvas { height: 56vw; min-height: 240px; }
+  /* nine labelled rooms need real height, even on a narrow phone */
+  .lk-wrap .grid-canvas { height: 400px; }
   .lk-wrap .flash-log { max-height: 34vh; }
   .lk-wrap .action-btn, .lk-wrap .point-pill { min-height: 44px; }
   .lk-wrap .point-pill { display:flex; align-items:center; }
