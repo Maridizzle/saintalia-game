@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<!--
+  Saintalia -- solo test page
+  Author: Maridizzle
+
+  Both players in one tab, for testing without a second device. Each frame
+  is a full copy of the game (index.html?solo=...), joined to the other by a
+  BroadcastChannel instead of PeerJS or the relay. Saintalia is the host.
+  Dev mode is always on inside the frames.
+
+  Narration works the same as a real game: through the server on Railway,
+  or with a Groq key typed below anywhere else.
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Saintalia Solo Test</title>
+<style>
+  html, body { height: 100%; margin: 0; background: #080510; color: #c9a84c; font-family: Georgia, serif; }
+  body { display: flex; flex-direction: column; }
+  .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; padding: 0.4rem 0.8rem;
+         background: #000; border-bottom: 1px solid rgba(201,168,76,0.3); font-size: 0.85rem; }
+  .bar strong { letter-spacing: 0.15em; }
+  .bar button, .bar input { font-family: monospace; font-size: 0.8rem; padding: 0.3rem 0.6rem;
+         background: #111; color: #e8c96a; border: 1px solid rgba(201,168,76,0.4); }
+  .bar button { cursor: pointer; }
+  .bar .showing { margin-left: auto; color: #d4c5a9; }
+  .frames { flex: 1; display: flex; min-height: 0; }
+  .frames iframe { flex: 1; border: 0; min-width: 0; }
+  .frames.single iframe.hidden { display: none; }
+  .frames.both iframe + iframe { border-left: 2px solid rgba(201,168,76,0.4); }
+</style>
+</head>
+<body>
+<div class="bar">
+  <strong>SOLO TEST</strong>
+  <button id="swapBtn" type="button">Swap sides</button>
+  <button id="layoutBtn" type="button">Side by side</button>
+  <input id="keyInput" type="password" placeholder="Groq key (only off Railway)" autocomplete="off" />
+  <button id="keyBtn" type="button">Send key</button>
+  <span class="showing" id="showing"></span>
+</div>
+<div class="frames single" id="frames"></div>
+<script>
+  // One channel id per visit, so two solo tabs never talk to each other
+  const ch = Math.random().toString(36).slice(2, 10);
+  const frames = document.getElementById('frames');
+  const make = (role) => {
+    const f = document.createElement('iframe');
+    f.src = 'index.html?solo=' + role + '&ch=' + ch;
+    f.title = role === 'fantasy' ? 'Saintalia player' : 'Artist';
+    frames.appendChild(f);
+    return f;
+  };
+  const sides = { fantasy: make('fantasy'), reality: make('reality') };
+  let shown = 'fantasy';
+
+  function render() {
+    const both = frames.classList.contains('both');
+    sides.fantasy.classList.toggle('hidden', !both && shown !== 'fantasy');
+    sides.reality.classList.toggle('hidden', !both && shown !== 'reality');
+    document.getElementById('layoutBtn').textContent = both ? 'One at a time' : 'Side by side';
+    document.getElementById('showing').textContent = both ? 'Showing both' : 'Showing: ' + (shown === 'fantasy' ? 'Saintalia (host)' : 'the Artist');
+  }
+  function swap() { shown = shown === 'fantasy' ? 'reality' : 'fantasy'; frames.classList.remove('both'); frames.classList.add('single'); render(); }
+
+  document.getElementById('swapBtn').onclick = swap;
+  document.getElementById('layoutBtn').onclick = () => {
+    const both = !frames.classList.contains('both');
+    frames.classList.toggle('both', both);
+    frames.classList.toggle('single', !both);
+    render();
+  };
+  // The key goes only to the host frame, the only side that narrates
+  document.getElementById('keyBtn').onclick = () => {
+    sides.fantasy.contentWindow.postMessage({ devKey: document.getElementById('keyInput').value.trim() }, location.origin);
+  };
+  // The Swap sides button inside either frame's dev bar
+  window.addEventListener('message', (e) => { if (e.origin === location.origin && e.data && e.data.devSwap) swap(); });
+  render();
+</script>
+</body>
+</html>

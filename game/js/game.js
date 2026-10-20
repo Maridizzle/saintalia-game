@@ -67,6 +67,10 @@ const G = {
   pendingAbilities: { fantasy: null, reality: null },
   veilReadAnswers: [],
 
+  // Every story-feed entry this player has seen in the Opening, in order, so
+  // a reload or a dev rewind can put the story back on screen.
+  feedLog: [],
+
   // NARRATOR MEMORY. One entry per resolved turn, in play order:
   // { turn, fantasy, reality, narrator }. Entry zero is the opening beat,
   // logged as turn 0 with no choices. resolveTurnIfReady reads the tail so the
@@ -554,9 +558,21 @@ function restoreOpening(root) {
 
   G.notes.forEach(function(n) { addNoteToThread(n.from, n.text); });
 
+  // Put the story back. Before this a reload kept every number but showed an
+  // empty story and no choice buttons.
+  _replayingFeed = true;
+  try { (G.feedLog || []).forEach(function(e) { addEntry(e.target, e.text, e.type); }); }
+  finally { _replayingFeed = false; }
+
+  var side = S.role === 'fantasy' ? 'fantasy' : 'reality';
+  renderChoiceButtons(side, G[side + 'Choices'] || []);
+
   if (G.openingDone) {
     revealOpeningExit();
-    setChoicesEnabled(true);
+    // Still waiting on the other side if this player already chose
+    var chose = !!G.pendingChoices[side];
+    setChoicesEnabled(!chose);
+    if (chose) setThinking(true, 'Your choice is made. Waiting for the other side...');
   }
 }
 
@@ -592,6 +608,9 @@ async function beginOpeningScene() {
     if (S.role === 'reality') setTimeout(() => showCorruptedImage(), 1200);
     if (S.role === 'fantasy') setTimeout(() => veilBlink(), 800);
     revealOpeningExit();
+
+    // Dev mode: turn 1 starts once the opening blink has landed on both sides
+    if (typeof devTurnStarted === 'function') setTimeout(devTurnStarted, 1500);
 
   } else {
     // Joiner waits -- narrator-update arrives via setupGameMessageHandler
@@ -739,6 +758,7 @@ async function resolveTurnIfReady() {
   const answered = parseNarratorResponse(raw).veilRead;
   if (veilReadAsk && answered) G.veilReadAnswers.push({ question: veilReadAsk.question, answer: answered });
 
+  if (typeof devRememberTurn === 'function') devRememberTurn();
   G.pendingChoices = { fantasy: null, reality: null };
   G.pendingRolls = { fantasy: null, reality: null };
   G.pendingAbilities = { fantasy: null, reality: null };
@@ -747,6 +767,8 @@ async function resolveTurnIfReady() {
   // The reality player's check cost lands on the veil, on top of the drift
   const veilCost = rRoll && CHECK_VEIL_COST[rRoll.result] ? randInt(...CHECK_VEIL_COST[rRoll.result]) : 0;
   advanceTurn(veilCost);
+
+  if (typeof devTurnStarted === 'function') devTurnStarted();
 }
 
 // Host only: the narrator failed this turn. Show why, with a Try again button.
@@ -840,6 +862,7 @@ onMessage('narrator-update', forScene('opening', (data) => {
   logTurn(G.openingDone ? data.turn : 0, G.pendingChoices.fantasy, G.pendingChoices.reality, data.raw);
 
   // PHASE 3d. Clear the pair so the next turn can accept fresh choices.
+  if (typeof devRememberTurn === 'function' && G.openingDone) devRememberTurn();
   G.pendingChoices = { fantasy: null, reality: null };
   G.pendingRolls = { fantasy: null, reality: null };
   G.pendingAbilities = { fantasy: null, reality: null };
@@ -1048,10 +1071,14 @@ function updateEnergyDisplay() {
   if (tag && S.role === 'fantasy') tag.textContent = 'Energy: ' + G.energy;
 }
 
+// True while restoreOpening replays G.feedLog, so the replay is not recorded twice
+let _replayingFeed = false;
+
 function addEntry(target, text, type) {
   const feedId = target === 'shared' ? 'sharedFeed' : 'privateFeed';
   const feed = document.getElementById(feedId);
   if (!feed) return;
+  if (!_replayingFeed) G.feedLog.push({ target, text, type });
 
   const entry = document.createElement('div');
   entry.className = 'entry ' + type;
@@ -1139,6 +1166,7 @@ function returnToCharacter() {
   G.abilityUsed = false;
   G.veilReadWaiting = false;
   G.veilReadAnswers = [];
+  G.feedLog = [];
   G.turnLog = [];
   G.veilDeath = 0;
   G.hopelessness = 0;

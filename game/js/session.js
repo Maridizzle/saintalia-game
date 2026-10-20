@@ -54,6 +54,7 @@ function collectSnapshot() {
       abilityUsed: G.abilityUsed,
       veilReadWaiting: G.veilReadWaiting,
       veilReadAnswers: G.veilReadAnswers,
+      feedLog: G.feedLog,
       turnLog: G.turnLog,
       veilDeath: G.veilDeath,
       hopelessness: G.hopelessness,
@@ -173,7 +174,9 @@ function restoreGamePhase(snapshot) {
   G.abilityArmed = false;
   G.veilReadWaiting = !!sg.veilReadWaiting;
   G.veilReadAnswers = sg.veilReadAnswers || [];
+  G.feedLog = sg.feedLog || [];
   G.turnLog = sg.turnLog || [];
+  G.waitingForNarrator = false;
   G.veilDeath = sg.veilDeath || 0;
   G.hopelessness = sg.hopelessness || 0;
   G.veilKnowledge = sg.veilKnowledge || 0;
@@ -249,7 +252,8 @@ function splitSaveData() {
     pendingAbilities: snap.G.pendingAbilities,
     abilityUsed: snap.G.abilityUsed,
     veilReadWaiting: snap.G.veilReadWaiting,
-    veilReadAnswers: snap.G.veilReadAnswers
+    veilReadAnswers: snap.G.veilReadAnswers,
+    feedLog: snap.G.feedLog
   };
 
   return { shared: shared, private: priv };
@@ -430,7 +434,8 @@ function rebuildSnapshot(shared, priv) {
       pendingAbilities: priv.pendingAbilities || { fantasy: null, reality: null },
       abilityUsed: !!priv.abilityUsed,
       veilReadWaiting: !!priv.veilReadWaiting,
-      veilReadAnswers: priv.veilReadAnswers || []
+      veilReadAnswers: priv.veilReadAnswers || [],
+      feedLog: priv.feedLog || []
     },
     sceneOrder: shared.sceneOrder || [],
     currentScene: shared.currentScene,

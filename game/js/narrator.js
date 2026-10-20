@@ -324,6 +324,26 @@ function normalizeChoice(choice, side) {
   return { text, stat };
 }
 
+// Draws this side's choice buttons and returns the normalized choices. Used by
+// fresh narration and by restoreOpening after a reload or a dev rewind.
+function renderChoiceButtons(side, rawChoices) {
+  const container = document.getElementById(side + 'ChoicesBtns');
+  const choices = (rawChoices || []).map(c => normalizeChoice(c, side)).filter(c => c.text);
+  if (!container) return choices;
+  container.innerHTML = '';
+  choices.forEach((choice, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'choice-btn';
+    const statTag = choice.stat
+      ? `<span class="choice-stat">[${choice.stat} ${(S.myCharacter.stats && S.myCharacter.stats[choice.stat]) || 0}]</span>`
+      : '';
+    btn.innerHTML = `<span class="choice-num">${i + 1}.</span>${statTag}${choice.text}`;
+    btn.onclick = () => makeChoice(side, choice.text, choice.stat);
+    container.appendChild(btn);
+  });
+  return choices;
+}
+
 // ---- APPLY NARRATOR RESPONSE TO THIS CLIENT ----
 function applyNarratorResponse(raw) {
   const parsed = parseNarratorResponse(raw);
@@ -343,22 +363,7 @@ function applyNarratorResponse(raw) {
   }
 
   const side = isF ? 'fantasy' : 'reality';
-  const container = document.getElementById(side + 'ChoicesBtns');
-  if (container && myChoices.length) {
-    container.innerHTML = '';
-    const choices = myChoices.map(c => normalizeChoice(c, side)).filter(c => c.text);
-    choices.forEach((choice, i) => {
-      const btn = document.createElement('button');
-      btn.className = 'choice-btn';
-      const statTag = choice.stat
-        ? `<span class="choice-stat">[${choice.stat} ${(S.myCharacter.stats && S.myCharacter.stats[choice.stat]) || 0}]</span>`
-        : '';
-      btn.innerHTML = `<span class="choice-num">${i + 1}.</span>${statTag}${choice.text}`;
-      btn.onclick = () => makeChoice(side, choice.text, choice.stat);
-      container.appendChild(btn);
-    });
-    G[side + 'Choices'] = choices;
-  }
+  if (myChoices.length) G[side + 'Choices'] = renderChoiceButtons(side, myChoices);
 
   setChoicesEnabled(true);
 }

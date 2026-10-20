@@ -28,10 +28,9 @@
 //      peer on the broker.
 // ============================================================
 
-// Set to false at the very END of Phase 1, after the side-by-side gate has
-// passed. Leaving it true for now so the split build and saintalia-v2.html
-// render identically during comparison.
-const DEBUG = true;
+// Off for players. The debug panel and scene skip now live behind dev mode
+// (js/dev.js): press D three times quickly to toggle it in your own browser.
+const DEBUG = false;
 
 // PHASE 11a. Which transport carries messages between the two players.
 //   'auto'   try the Railway relay first. If /api/ws-token is not there,
@@ -1002,4 +1001,6 @@ if (!DEBUG) {
 
 // PHASE 11a step 3. If this tab was in a room before a reload, go back in.
 // This script sits at the end of <body>, so the lobby DOM exists by now.
-relayResumeFromStorage();
+// Not inside game/dev.html's solo frames: they share this tab's session
+// storage and must never resume a real relay game.
+if (typeof location === 'undefined' || !/[?&]solo=/.test(location.search)) relayResumeFromStorage();
