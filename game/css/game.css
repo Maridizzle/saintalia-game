@@ -163,6 +163,14 @@ body.screen-char {
 }
 
 html.screen-game, body.screen-game { height: 100%; overflow: hidden; }
+
+/* The scene box is the one flex child of the game screen that holds every
+   scene. Without a height limit it grew with the story while the page cannot
+   scroll, so after a few turns the choices were cut off below the window.
+   Every scene's wrapper (.g-body, .lk-wrap, .dm-wrap, .q-wrap, .bridge-wrap)
+   uses flex:1 + min-height:0 to scroll inside itself, which only works when
+   this box is a height-bounded flex column. */
+body.screen-game > #scene-root { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 body.screen-game {
   background: var(--ink);
   height: 100vh;
