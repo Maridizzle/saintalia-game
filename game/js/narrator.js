@@ -234,6 +234,7 @@ ${characterBrief(rC, 'reality')}
 USING THE CHARACTERS: Write each player's half for the character described above, not a generic one. Let their body and appearance show in what they feel and how they move. Let their background, drive, burden, fear and personality shape what they notice, what tempts them and what they dread. Let high stats (4 or 5) show as things they notice or do well, and low stats (0 or 1) as things they miss or struggle with. Offer choices this character in particular would be drawn to or afraid of. Never mention stats, numbers, or ability names in the prose.
 
 RECENT NOTES THROUGH VEIL: ${notes || 'None yet.'}
+VEIL READ ANSWERS ALREADY GIVEN (these are true; the story must keep to them): ${(G.veilReadAnswers || []).map(v => '"' + v.question + '" -> ' + v.answer).join(' | ') || 'None.'}
 VEIL INTEGRITY: ${G.veilStrength}% broken.
 FANTASY ENERGY: ${G.energy}/100, drained by every veil slip.
 CURRENT TURN: ${G.turn}.
@@ -304,6 +305,13 @@ function parseNarratorResponse(text) {
     try { result.realityChoices = JSON.parse(rcMatch[1]).choices; } catch(e) {}
   }
 
+  // Veil Read answer, only asked for on the turn the ability was used. Never
+  // left inside the narration even if the narrator puts it there.
+  const vrMatch = text.match(/VEIL_READ:\s*(YES|NO)\b[\s\-:]*([^\n]*)/i);
+  result.veilRead = vrMatch ? vrMatch[1].toUpperCase() + (vrMatch[2].trim() ? ' -- ' + vrMatch[2].trim() : '') : null;
+  result.fantasyNarrative = result.fantasyNarrative.replace(/VEIL_READ:[^\n]*/gi, '').trim();
+  result.realityNarrative = result.realityNarrative.replace(/VEIL_READ:[^\n]*/gi, '').trim();
+
   return result;
 }
 
@@ -327,6 +335,12 @@ function applyNarratorResponse(raw) {
   const myChoices = isF ? parsed.fantasyChoices : parsed.realityChoices;
 
   if (myNarrative) addEntry('private', myNarrative, 'narrator');
+
+  // Show the Veil Read answer only on the turn this player asked, never a repeat
+  if (parsed.veilRead && G.veilReadWaiting) {
+    addEntry('private', parsed.veilRead, 'veilread');
+    G.veilReadWaiting = false;
+  }
 
   const side = isF ? 'fantasy' : 'reality';
   const container = document.getElementById(side + 'ChoicesBtns');

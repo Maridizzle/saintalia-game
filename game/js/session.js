@@ -50,6 +50,10 @@ function collectSnapshot() {
       realityChoices: G.realityChoices,
       pendingChoices: G.pendingChoices,
       pendingRolls: G.pendingRolls,
+      pendingAbilities: G.pendingAbilities,
+      abilityUsed: G.abilityUsed,
+      veilReadWaiting: G.veilReadWaiting,
+      veilReadAnswers: G.veilReadAnswers,
       turnLog: G.turnLog,
       veilDeath: G.veilDeath,
       hopelessness: G.hopelessness,
@@ -164,6 +168,11 @@ function restoreGamePhase(snapshot) {
   G.realityChoices = sg.realityChoices || [];
   G.pendingChoices = sg.pendingChoices || { fantasy: null, reality: null };
   G.pendingRolls = sg.pendingRolls || { fantasy: null, reality: null };
+  G.pendingAbilities = sg.pendingAbilities || { fantasy: null, reality: null };
+  G.abilityUsed = !!sg.abilityUsed;
+  G.abilityArmed = false;
+  G.veilReadWaiting = !!sg.veilReadWaiting;
+  G.veilReadAnswers = sg.veilReadAnswers || [];
   G.turnLog = sg.turnLog || [];
   G.veilDeath = sg.veilDeath || 0;
   G.hopelessness = sg.hopelessness || 0;
@@ -236,7 +245,11 @@ function splitSaveData() {
     fantasyChoices: snap.G.fantasyChoices,
     realityChoices: snap.G.realityChoices,
     pendingChoices: snap.G.pendingChoices,
-    pendingRolls: snap.G.pendingRolls
+    pendingRolls: snap.G.pendingRolls,
+    pendingAbilities: snap.G.pendingAbilities,
+    abilityUsed: snap.G.abilityUsed,
+    veilReadWaiting: snap.G.veilReadWaiting,
+    veilReadAnswers: snap.G.veilReadAnswers
   };
 
   return { shared: shared, private: priv };
@@ -413,7 +426,11 @@ function rebuildSnapshot(shared, priv) {
       fantasyChoices: priv.fantasyChoices || [],
       realityChoices: priv.realityChoices || [],
       pendingChoices: priv.pendingChoices || { fantasy: null, reality: null },
-      pendingRolls: priv.pendingRolls || { fantasy: null, reality: null }
+      pendingRolls: priv.pendingRolls || { fantasy: null, reality: null },
+      pendingAbilities: priv.pendingAbilities || { fantasy: null, reality: null },
+      abilityUsed: !!priv.abilityUsed,
+      veilReadWaiting: !!priv.veilReadWaiting,
+      veilReadAnswers: priv.veilReadAnswers || []
     },
     sceneOrder: shared.sceneOrder || [],
     currentScene: shared.currentScene,
